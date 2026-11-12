@@ -1,0 +1,551 @@
+#!/system/bin/sh
+#
+# E404 Controller - Unified Hardware, BORE & Kernel Optimizer
+# Designed for Poco X3 Pro (SM8150 / vayu)
+#
+
+# Determine Module Directory
+if [ -d "/data/adb/modules/e404_controller" ]; then
+    MODDIR="/data/adb/modules/e404_controller"
+else
+    MODDIR="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
+fi
+
+CONF_DIR="$MODDIR/config"
+PROFILE_FILE="$CONF_DIR/current_profile"
+SETTINGS_FILE="$CONF_DIR/e404.conf"
+GAMELIST="$CONF_DIR/gamelist.txt"
+
+mkdir -p "$CONF_DIR" 2>/dev/null
+
+write_node() {
+    val="$1"
+    node="$2"
+    if [ -w "$node" ]; then
+        echo "$val" > "$node" 2>/dev/null || true
+    fi
+}
+
+get_conf() {
+    key="$1"
+    default="$2"
+    if [ -f "$SETTINGS_FILE" ]; then
+        v=$(grep "^${key}=" "$SETTINGS_FILE" | cut -d'=' -f2)
+        [ -n "$v" ] && echo "$v" && return
+    fi
+    echo "$default"
+}
+
+set_conf() {
+    key="$1"
+    val="$2"
+    if [ ! -f "$SETTINGS_FILE" ]; then
+        echo "${key}=${val}" > "$SETTINGS_FILE"
+    elif grep -q "^${key}=" "$SETTINGS_FILE"; then
+        sed -i "s|^${key}=.*|${key}=${val}|" "$SETTINGS_FILE"
+    else
+        echo "${key}=${val}" >> "$SETTINGS_FILE"
+    fi
+}
+
+update_module_prop() {
+    prof="$1"
+    prop="$MODDIR/module.prop"
+    tag="[Active: $(echo "$prof" | tr 'a-z' 'A-Z' | tr '_' ' ')]"
+    cat <<EOF > "$prop"
+id=e404_controller
+name=E404 Controller (SM8150)
+version=v1.1.0
+versionCode=10100
+author=E404
+description=Unified hardware, BORE 7.0.1, Konabess GPU UV, UFS, bypass charging, auto-game daemon & Lyb touch for Poco X3 Pro. $tag
+EOF
+}
+
+apply_performance() {
+    # Thermal unconstrain for gaming
+    write_node 10 /sys/devices/virtual/thermal/thermal_message/sconfig
+    write_node 0 /sys/devices/virtual/thermal/thermal_message/balance_mode
+
+    # CPU Frequencies & Schedutil (Low latency)
+    write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+    write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+    write_node 1000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+
+    write_node 2419200 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+    write_node 1056000 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
+    write_node 1000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+
+    write_node 2956800 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
+    write_node 1190400 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
+    write_node 1000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+
+    # GPU: Uncapped 692 MHz OPP0, floor OPP4 (427 MHz)
+    write_node 0 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+    write_node 4 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    write_node 64 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 1 /sys/class/kgsl/kgsl-3d0/bus_split
+
+    # BORE 7.0.1 Scheduler
+    write_node 1 /proc/sys/kernel/sched_bore
+    write_node 2 /proc/sys/kernel/sched_burst_protect_slice_lv
+    write_node 1280 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1 /proc/sys/kernel/sched_burst_smoothness
+
+    # UFS Storage 3.1
+    for q in /sys/block/sd[a-f]/queue; do
+        write_node 512 "$q/read_ahead_kb"
+        write_node 0 "$q/iostats"
+        write_node 2 "$q/nomerges"
+        write_node 0 "$q/add_random"
+        write_node 2 "$q/rq_affinity"
+    done
+
+    # VM Memory
+    write_node 80 /proc/sys/vm/vfs_cache_pressure
+
+    # Lyb Touch
+    write_node 1 /sys/kernel/e404/lyb/touch_game_mode
+
+    echo "performance" > "$PROFILE_FILE"
+    update_module_prop "performance"
+}
+
+apply_game_lite() {
+    # Thermal: Gaming profile
+    write_node 10 /sys/devices/virtual/thermal/thermal_message/sconfig
+    write_node 0 /sys/devices/virtual/thermal/thermal_message/balance_mode
+
+    # CPU: Silver stock, Gold capped to 2.15 GHz, Prime capped to 2.45 GHz (Optimal efficiency)
+    write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+    write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+    write_node 2000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+
+    write_node 2150400 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+    write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
+    write_node 2000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+
+    write_node 2457600 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
+    write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
+    write_node 2000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+
+    # GPU: Cap to 585 MHz (OPP2) to prevent severe 692MHz DDR2133 battery drain! Floor OPP6 (257 MHz)
+    write_node 2 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+    write_node 6 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    write_node 48 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 1 /sys/class/kgsl/kgsl-3d0/bus_split
+
+    # BORE 7.0.1 Scheduler
+    write_node 1 /proc/sys/kernel/sched_bore
+    write_node 1 /proc/sys/kernel/sched_burst_protect_slice_lv
+    write_node 1280 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1 /proc/sys/kernel/sched_burst_smoothness
+
+    # UFS Storage 3.1
+    for q in /sys/block/sd[a-f]/queue; do
+        write_node 256 "$q/read_ahead_kb"
+        write_node 0 "$q/iostats"
+        write_node 1 "$q/nomerges"
+        write_node 0 "$q/add_random"
+        write_node 2 "$q/rq_affinity"
+    done
+
+    # VM Memory
+    write_node 100 /proc/sys/vm/vfs_cache_pressure
+
+    # Lyb Touch
+    write_node 1 /sys/kernel/e404/lyb/touch_game_mode
+
+    echo "game_lite" > "$PROFILE_FILE"
+    update_module_prop "game_lite"
+}
+
+apply_balanced() {
+    # Thermal: Stock automatic
+    write_node 0 /sys/devices/virtual/thermal/thermal_message/sconfig
+    write_node 0 /sys/devices/virtual/thermal/thermal_message/balance_mode
+
+    # CPU: Full stock dynamic range
+    write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+    write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+    write_node 4000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+
+    write_node 2419200 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+    write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
+    write_node 4000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+
+    write_node 2956800 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
+    write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
+    write_node 4000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+
+    # GPU: Cap to 585 MHz (OPP2), full idle to OPP7 (150 MHz)
+    write_node 2 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+    write_node 7 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    write_node 24 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 0 /sys/class/kgsl/kgsl-3d0/bus_split
+
+    # BORE 7.0.1 Scheduler
+    write_node 1 /proc/sys/kernel/sched_bore
+    write_node 1 /proc/sys/kernel/sched_burst_protect_slice_lv
+    write_node 1280 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1 /proc/sys/kernel/sched_burst_smoothness
+
+    # UFS Storage 3.1
+    for q in /sys/block/sd[a-f]/queue; do
+        write_node 128 "$q/read_ahead_kb"
+        write_node 1 "$q/iostats"
+        write_node 0 "$q/nomerges"
+        write_node 1 "$q/add_random"
+        write_node 1 "$q/rq_affinity"
+    done
+
+    # VM Memory
+    write_node 100 /proc/sys/vm/vfs_cache_pressure
+
+    # Lyb Touch
+    write_node 0 /sys/kernel/e404/lyb/touch_game_mode
+
+    echo "balanced" > "$PROFILE_FILE"
+    update_module_prop "balanced"
+}
+
+apply_battery() {
+    # Thermal: Power saving
+    write_node 1 /sys/devices/virtual/thermal/thermal_message/sconfig
+    write_node 1 /sys/devices/virtual/thermal/thermal_message/balance_mode
+
+    # CPU: Lower clocks, slow schedutil response
+    write_node 1516800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+    write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+    write_node 8000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+
+    write_node 1670400 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+    write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
+    write_node 8000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+
+    write_node 1747200 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
+    write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
+    write_node 8000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+
+    # GPU: Cap to 427 MHz (OPP4), full idle OPP7 (150 MHz)
+    write_node 4 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
+    write_node 7 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    write_node 16 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 0 /sys/class/kgsl/kgsl-3d0/bus_split
+
+    # BORE 7.0.1 Scheduler
+    write_node 1 /proc/sys/kernel/sched_bore
+    write_node 0 /proc/sys/kernel/sched_burst_protect_slice_lv
+    write_node 1536 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1 /proc/sys/kernel/sched_burst_smoothness
+
+    # UFS Storage 3.1
+    for q in /sys/block/sd[a-f]/queue; do
+        write_node 64 "$q/read_ahead_kb"
+        write_node 1 "$q/iostats"
+        write_node 0 "$q/nomerges"
+        write_node 1 "$q/add_random"
+        write_node 1 "$q/rq_affinity"
+    done
+
+    # VM Memory
+    write_node 120 /proc/sys/vm/vfs_cache_pressure
+
+    # Lyb Touch
+    write_node 0 /sys/kernel/e404/lyb/touch_game_mode
+
+    echo "battery" > "$PROFILE_FILE"
+    update_module_prop "battery"
+}
+
+set_bypass() {
+    state="$1"
+    if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
+        write_node 1 /sys/class/power_supply/battery/input_suspend
+        set_conf "BYPASS" "1"
+        echo "Bypass charging ENABLED (battery charging stopped, powered directly)"
+    else
+        write_node 0 /sys/class/power_supply/battery/input_suspend
+        set_conf "BYPASS" "0"
+        echo "Bypass charging DISABLED (normal charging restored)"
+    fi
+}
+
+set_fastcharge() {
+    state="$1"
+    if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
+        write_node 1 /sys/kernel/fast_charge/force_fast_charge
+        set_conf "FASTCHARGE" "1"
+        echo "6A Fast Charge override ENABLED"
+    else
+        write_node 0 /sys/kernel/fast_charge/force_fast_charge
+        set_conf "FASTCHARGE" "0"
+        echo "6A Fast Charge override DISABLED"
+    fi
+}
+
+set_lyb() {
+    state="$1"
+    if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
+        write_node 1 /sys/kernel/e404/lyb/touch_game_mode
+        set_conf "LYB" "1"
+        echo "Lyb Game Touch mode ENABLED"
+    else
+        write_node 0 /sys/kernel/e404/lyb/touch_game_mode
+        set_conf "LYB" "0"
+        echo "Lyb Game Touch mode DISABLED"
+    fi
+}
+
+set_perflite() {
+    state="$1"
+    if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
+        set_conf "PERF_LITE" "1"
+        echo "Performance Lite mode ENABLED (Forces Game Lite on all games)"
+    else
+        set_conf "PERF_LITE" "0"
+        echo "Performance Lite mode DISABLED (Full Performance on games)"
+    fi
+}
+
+set_autogame() {
+    state="$1"
+    if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
+        set_conf "AUTO_GAME" "1"
+        echo "Auto-Game Detection ENABLED"
+    else
+        set_conf "AUTO_GAME" "0"
+        echo "Auto-Game Detection DISABLED"
+    fi
+}
+
+get_status_json() {
+    # Current profile
+    if [ -f "$PROFILE_FILE" ]; then
+        cur_prof=$(cat "$PROFILE_FILE" 2>/dev/null | tr -d '[:space:]')
+    else
+        cur_prof="balanced"
+    fi
+
+    # CPU Live Clocks
+    c0_cur=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq 2>/dev/null || echo 0)
+    c0_max=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq 2>/dev/null || echo 1804800)
+    c4_cur=$(cat /sys/devices/system/cpu/cpufreq/policy4/scaling_cur_freq 2>/dev/null || echo 0)
+    c4_max=$(cat /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq 2>/dev/null || echo 2419200)
+    c7_cur=$(cat /sys/devices/system/cpu/cpufreq/policy7/scaling_cur_freq 2>/dev/null || echo 0)
+    c7_max=$(cat /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq 2>/dev/null || echo 2956800)
+
+    # Temperatures
+    cpu_t_raw=$(cat /sys/class/thermal/thermal_zone1/temp 2>/dev/null || echo 45000)
+    cpu_temp=$(awk "BEGIN {printf \"%.1f\", $cpu_t_raw / 1000}")
+
+    gpu_t_raw=$(cat /sys/class/thermal/thermal_zone15/temp 2>/dev/null || echo 40000)
+    gpu_temp=$(awk "BEGIN {printf \"%.1f\", $gpu_t_raw / 1000}")
+
+    # GPU
+    gpu_clk_raw=$(cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null || echo 150000000)
+    gpu_mhz=$((gpu_clk_raw / 1000000))
+    gpu_max_pwr=$(cat /sys/class/kgsl/kgsl-3d0/max_pwrlevel 2>/dev/null || echo 0)
+    gpu_min_pwr=$(cat /sys/class/kgsl/kgsl-3d0/min_pwrlevel 2>/dev/null || echo 7)
+
+    # Battery
+    bat_cap=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0)
+    bat_curr_raw=$(cat /sys/class/power_supply/battery/current_now 2>/dev/null || echo 0)
+    bat_curr_ma=$((bat_curr_raw / 1000))
+    bat_t_raw=$(cat /sys/class/power_supply/battery/temp 2>/dev/null || echo 300)
+    bat_temp=$(awk "BEGIN {printf \"%.1f\", $bat_t_raw / 10}")
+    bat_status=$(cat /sys/class/power_supply/battery/status 2>/dev/null || echo "Unknown")
+
+    # Features
+    input_suspend=$(cat /sys/class/power_supply/battery/input_suspend 2>/dev/null || echo 0)
+    fast_charge=$(cat /sys/kernel/fast_charge/force_fast_charge 2>/dev/null || echo 0)
+    lyb_touch=$(cat /sys/kernel/e404/lyb/touch_game_mode 2>/dev/null || echo 0)
+    bore_status=$(cat /proc/sys/kernel/sched_bore 2>/dev/null || echo 0)
+    bore_protect=$(cat /proc/sys/kernel/sched_burst_protect_slice_lv 2>/dev/null || echo 0)
+    ufs_ra=$(cat /sys/block/sda/queue/read_ahead_kb 2>/dev/null || echo 128)
+
+    # Daemon & Auto-Game Toggles
+    perf_lite=$(get_conf "PERF_LITE" "1")
+    auto_game=$(get_conf "AUTO_GAME" "1")
+    daemon_run=0
+    pgrep -f E404SysMon >/dev/null 2>&1 && daemon_run=1
+    active_game=""
+    [ -f "$CONF_DIR/active_game" ] && active_game=$(cat "$CONF_DIR/active_game" 2>/dev/null)
+
+    # Format JSON
+    cat <<EOF
+{
+  "profile": "$cur_prof",
+  "device": "Xiaomi Poco X3 Pro (vayu)",
+  "soc": "Snapdragon 860 (SM8150)",
+  "kernel": "Linux 4.19.404R",
+  "bore_version": "7.0.1",
+  "bore_enabled": $bore_status,
+  "bore_protect_slice": $bore_protect,
+  "cpu": {
+    "silver_cur": $c0_cur,
+    "silver_max": $c0_max,
+    "gold_cur": $c4_cur,
+    "gold_max": $c4_max,
+    "prime_cur": $c7_cur,
+    "prime_max": $c7_max,
+    "temp": $cpu_temp
+  },
+  "gpu": {
+    "cur_freq_mhz": $gpu_mhz,
+    "max_pwrlevel": $gpu_max_pwr,
+    "min_pwrlevel": $gpu_min_pwr,
+    "temp": $gpu_temp
+  },
+  "battery": {
+    "capacity": $bat_cap,
+    "current_ma": $bat_curr_ma,
+    "temp": $bat_temp,
+    "status": "$bat_status",
+    "bypass_charging": $input_suspend,
+    "force_fast_charge": $fast_charge
+  },
+  "lyb_touch": $lyb_touch,
+  "ufs_read_ahead_kb": $ufs_ra,
+  "auto_game": $auto_game,
+  "perf_lite": $perf_lite,
+  "daemon_running": $daemon_run,
+  "active_game": "$active_game"
+}
+EOF
+}
+
+case "$1" in
+    profile)
+        case "$2" in
+            performance)
+                apply_performance
+                echo "Profile set: PERFORMANCE"
+                ;;
+            game_lite)
+                apply_game_lite
+                echo "Profile set: GAME LITE"
+                ;;
+            balanced)
+                apply_balanced
+                echo "Profile set: BALANCED"
+                ;;
+            battery)
+                apply_battery
+                echo "Profile set: BATTERY"
+                ;;
+            get)
+                if [ -f "$PROFILE_FILE" ]; then
+                    cat "$PROFILE_FILE"
+                else
+                    echo "balanced"
+                fi
+                ;;
+            *)
+                echo "Usage: e404-ctrl profile [performance|game_lite|balanced|battery|get]"
+                exit 1
+                ;;
+        esac
+        ;;
+    perflite)
+        case "$2" in
+            1|on|enable) set_perflite 1 ;;
+            0|off|disable) set_perflite 0 ;;
+            toggle)
+                cur=$(get_conf "PERF_LITE" "1")
+                [ "$cur" = "1" ] && set_perflite 0 || set_perflite 1
+                ;;
+            status) get_conf "PERF_LITE" "1" ;;
+            *) echo "Usage: e404-ctrl perflite [on|off|toggle|status]" ;;
+        esac
+        ;;
+    autogame)
+        case "$2" in
+            1|on|enable) set_autogame 1 ;;
+            0|off|disable) set_autogame 0 ;;
+            toggle)
+                cur=$(get_conf "AUTO_GAME" "1")
+                [ "$cur" = "1" ] && set_autogame 0 || set_autogame 1
+                ;;
+            status) get_conf "AUTO_GAME" "1" ;;
+            *) echo "Usage: e404-ctrl autogame [on|off|toggle|status]" ;;
+        esac
+        ;;
+    daemon)
+        case "$2" in
+            start|stop|restart|status)
+                "$MODDIR/bin/e404-daemon" "$2"
+                ;;
+            *)
+                echo "Usage: e404-ctrl daemon [start|stop|restart|status]"
+                ;;
+        esac
+        ;;
+    bypass)
+        case "$2" in
+            1|on|enable) set_bypass 1 ;;
+            0|off|disable) set_bypass 0 ;;
+            toggle)
+                cur=$(cat /sys/class/power_supply/battery/input_suspend 2>/dev/null || echo 0)
+                [ "$cur" = "1" ] && set_bypass 0 || set_bypass 1
+                ;;
+            status) cat /sys/class/power_supply/battery/input_suspend 2>/dev/null || echo 0 ;;
+            *) echo "Usage: e404-ctrl bypass [on|off|toggle|status]" ; exit 1 ;;
+        esac
+        ;;
+    fastcharge)
+        case "$2" in
+            1|on|enable) set_fastcharge 1 ;;
+            0|off|disable) set_fastcharge 0 ;;
+            toggle)
+                cur=$(cat /sys/kernel/fast_charge/force_fast_charge 2>/dev/null || echo 0)
+                [ "$cur" = "1" ] && set_fastcharge 0 || set_fastcharge 1
+                ;;
+            status) cat /sys/kernel/fast_charge/force_fast_charge 2>/dev/null || echo 0 ;;
+            *) echo "Usage: e404-ctrl fastcharge [on|off|toggle|status]" ; exit 1 ;;
+        esac
+        ;;
+    lyb)
+        case "$2" in
+            1|on|enable) set_lyb 1 ;;
+            0|off|disable) set_lyb 0 ;;
+            toggle)
+                cur=$(cat /sys/kernel/e404/lyb/touch_game_mode 2>/dev/null || echo 0)
+                [ "$cur" = "1" ] && set_lyb 0 || set_lyb 1
+                ;;
+            status) cat /sys/kernel/e404/lyb/touch_game_mode 2>/dev/null || echo 0 ;;
+            *) echo "Usage: e404-ctrl lyb [on|off|toggle|status]" ; exit 1 ;;
+        esac
+        ;;
+    status)
+        get_status_json
+        ;;
+    apply)
+        if [ -f "$PROFILE_FILE" ]; then
+            p=$(cat "$PROFILE_FILE" 2>/dev/null)
+            "$0" profile "$p"
+        else
+            "$0" profile balanced
+        fi
+        ;;
+    version|-v|--version)
+        echo "E404 Controller v1.1.0 (SM8150 / Poco X3 Pro)"
+        ;;
+    *)
+        echo "E404 Controller CLI"
+        echo "Usage: e404-ctrl <command> [args]"
+        echo ""
+        echo "Commands:"
+        echo "  profile <performance|game_lite|balanced|battery|get>"
+        echo "  perflite <on|off|toggle|status>  (Force Game Lite for games)"
+        echo "  autogame <on|off|toggle|status>  (Auto game profile detector)"
+        echo "  daemon <start|stop|restart|status>"
+        echo "  bypass <on|off|toggle|status>"
+        echo "  fastcharge <on|off|toggle|status>"
+        echo "  lyb <on|off|toggle|status>"
+        echo "  status       (Print JSON system state for WebUI)"
+        echo "  apply        (Reapply active profile and settings)"
+        echo "  version      (Print version)"
+        ;;
+esac
+exit 0

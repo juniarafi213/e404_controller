@@ -1,0 +1,218 @@
+#!/system/bin/sh
+#
+# E404 Auto-Game Profile Daemon
+# Monitors foreground applications via system_monitor and switches profiles automatically.
+#
+
+if [ -d "/data/adb/modules/e404_controller" ]; then
+    MODDIR="/data/adb/modules/e404_controller"
+else
+    MODDIR="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)"
+fi
+
+CONF_DIR="$MODDIR/config"
+CTRL="$MODDIR/bin/e404-ctrl"
+SYS_OUT="$CONF_DIR/sysmon_out.txt"
+LOCK_FILE="$CONF_DIR/sysmon.lock"
+GAMELIST="$CONF_DIR/gamelist.txt"
+STATE_FILE="$CONF_DIR/daemon_state"
+CONF_FILE="$CONF_DIR/e404.conf"
+LOG_FILE="$CONF_DIR/daemon.log"
+
+BUSYBOX="/data/adb/ksu/bin/busybox"
+[ ! -x "$BUSYBOX" ] && BUSYBOX="/data/adb/magisk/busybox"
+[ ! -x "$BUSYBOX" ] && BUSYBOX="$(which busybox 2>/dev/null)"
+
+log() {
+    echo "[$(date '+%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+get_config_val() {
+    key="$1"
+    default="$2"
+    if [ -f "$CONF_FILE" ]; then
+        v=$(grep "^${key}=" "$CONF_FILE" | cut -d'=' -f2)
+        [ -n "$v" ] && echo "$v" && return
+    fi
+    echo "$default"
+}
+
+set_config_val() {
+    key="$1"
+    val="$2"
+    mkdir -p "$CONF_DIR"
+    if [ ! -f "$CONF_FILE" ]; then
+        echo "${key}=${val}" > "$CONF_FILE"
+    elif grep -q "^${key}=" "$CONF_FILE"; then
+        sed -i "s|^${key}=.*|${key}=${val}|" "$CONF_FILE"
+    else
+        echo "${key}=${val}" >> "$CONF_FILE"
+    fi
+}
+
+handle_event() {
+    [ ! -f "$SYS_OUT" ] && return
+
+    # Check if auto game detection is enabled
+    auto_game=$(get_config_val "AUTO_GAME" "1")
+    [ "$auto_game" = "0" ] && return
+
+    # Read sysmon output
+    focused_line=$(grep "^focused_app" "$SYS_OUT" 2>/dev/null)
+    screen_line=$(grep "^screen_awake" "$SYS_OUT" 2>/dev/null)
+
+    [ -z "$focused_line" ] && return
+
+    pkg=$(echo "$focused_line" | awk '{print $2}')
+    screen_awake=$(echo "$screen_line" | awk '{print $2}')
+
+    # Handle screen off
+    if [ "$screen_awake" = "0" ]; then
+        # If currently in game, revert to battery/balanced temporarily
+        if [ -f "$STATE_FILE" ]; then
+            curr_state=$(cat "$STATE_FILE" 2>/dev/null)
+            if [ "$curr_state" = "game" ]; then
+                log "Screen turned off during game, setting balanced"
+                "$CTRL" profile balanced >/dev/null 2>&1
+                echo "screen_off" > "$STATE_FILE"
+            fi
+        fi
+        return
+    fi
+
+    # Check if current package is a game
+    is_game=0
+    if [ -n "$pkg" ] && [ -f "$GAMELIST" ]; then
+        if grep -F -x -q "$pkg" "$GAMELIST" 2>/dev/null; then
+            is_game=1
+        fi
+    fi
+
+    prev_state="none"
+    [ -f "$STATE_FILE" ] && prev_state=$(cat "$STATE_FILE" 2>/dev/null)
+
+    if [ "$is_game" -eq 1 ]; then
+        # Active app is a GAME!
+        if [ "$prev_state" != "game" ]; then
+            # Save the current profile as fallback before switching
+            last_prof=$("$CTRL" profile get 2>/dev/null || echo "balanced")
+            if [ "$last_prof" != "performance" ] && [ "$last_prof" != "game_lite" ]; then
+                echo "$last_prof" > "$CONF_DIR/last_normal_profile"
+            fi
+
+            # Check if Performance Lite toggle is enabled
+            perf_lite=$(get_config_val "PERF_LITE" "1")
+
+            if [ "$perf_lite" = "1" ]; then
+                log "Game opened: $pkg -> Applying GAME LITE (585MHz GPU cap, DDR RAM safe)"
+                "$CTRL" profile game_lite >/dev/null 2>&1
+            else
+                log "Game opened: $pkg -> Applying PERFORMANCE (692MHz GPU uncapped)"
+                "$CTRL" profile performance >/dev/null 2>&1
+            fi
+
+            echo "game" > "$STATE_FILE"
+            echo "$pkg" > "$CONF_DIR/active_game"
+        fi
+    else
+        # Active app is NOT a game
+        if [ "$prev_state" = "game" ] || [ "$prev_state" = "screen_off" ]; then
+            last_prof="balanced"
+            if [ -f "$CONF_DIR/last_normal_profile" ]; then
+                last_prof=$(cat "$CONF_DIR/last_normal_profile" 2>/dev/null)
+                [ -z "$last_prof" ] && last_prof="balanced"
+            fi
+
+            log "Exited game: $pkg foreground -> Restoring $last_prof"
+            "$CTRL" profile "$last_prof" >/dev/null 2>&1
+            echo "normal" > "$STATE_FILE"
+            rm -f "$CONF_DIR/active_game"
+        fi
+    fi
+}
+
+start_daemon() {
+    stop_daemon
+
+    mkdir -p "$CONF_DIR"
+    rm -f "$LOCK_FILE"
+    echo "normal" > "$STATE_FILE"
+
+    log "Starting E404 Game Controller Daemon..."
+
+    # 1. Start system_monitor via app_process
+    APK="$MODDIR/bin/system_monitor.apk"
+    if [ ! -f "$APK" ]; then
+        log "ERROR: system_monitor.apk not found at $APK"
+        return 1
+    fi
+
+    nohup app_process -Djava.class.path="$APK" / \
+        --nice-name=E404SysMon com.rem01gaming.systemmonitor.MainKt \
+        "$SYS_OUT" "$LOCK_FILE" >/dev/null 2>&1 &
+
+    sleep 1
+
+    # 2. Run event monitor loop via inotifyd if available, else lightweight sleep
+    if [ -x "$BUSYBOX" ]; then
+        # Launch inotifyd watcher in background with absolute binary path
+        DAEMON_BIN="$MODDIR/bin/e404-daemon"
+        nohup "$BUSYBOX" inotifyd "$DAEMON_BIN" "$SYS_OUT:w" >/dev/null 2>&1 &
+        inotify_pid=$!
+        echo "$inotify_pid" > "$CONF_DIR/inotifyd.pid"
+        log "Watcher started with inotifyd (PID: $inotify_pid, 0% CPU)"
+    else
+        log "Warning: busybox inotifyd not available, falling back to polling"
+    fi
+}
+
+stop_daemon() {
+    killall -9 E404SysMon 2>/dev/null || true
+    if [ -f "$CONF_DIR/inotifyd.pid" ]; then
+        kpid=$(cat "$CONF_DIR/inotifyd.pid" 2>/dev/null)
+        [ -n "$kpid" ] && kill -9 "$kpid" 2>/dev/null || true
+        rm -f "$CONF_DIR/inotifyd.pid"
+    fi
+    killall -9 inotifyd 2>/dev/null || true
+    rm -f "$LOCK_FILE"
+    echo "stopped" > "$STATE_FILE"
+    log "E404 Game Controller Daemon stopped."
+}
+
+status_daemon() {
+    if pgrep -f E404SysMon >/dev/null; then
+        echo "running"
+    else
+        echo "stopped"
+    fi
+}
+
+# Inotifyd callback handler (invoked as: e404-daemon <event> <file>)
+if [ "$1" = "w" ] || [ "$1" = "c" ] || [ "$1" = "m" ] || [ "$1" = "e404_event" ]; then
+    handle_event
+    exit 0
+fi
+
+case "$1" in
+    start)
+        start_daemon
+        ;;
+    stop)
+        stop_daemon
+        ;;
+    restart)
+        start_daemon
+        ;;
+    status)
+        status_daemon
+        ;;
+    trigger)
+        handle_event
+        ;;
+    *)
+        echo "Usage: e404-daemon {start|stop|restart|status|trigger}"
+        exit 1
+        ;;
+esac
+
+exit 0

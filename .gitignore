@@ -1,0 +1,14 @@
+# Logs & Locks
+config/daemon.log
+config/sysmon.lock
+config/sysmon_out.txt
+config/inotifyd.pid
+config/active_game
+config/last_normal_profile
+config/daemon_state
+service.log
+
+# Target build
+target/
+daemon-rs/target/
+*.zip

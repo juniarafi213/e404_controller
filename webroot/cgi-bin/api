@@ -1,0 +1,46 @@
+#!/system/bin/sh
+# E404 Controller - WebUI CGI API Handler
+
+printf "Content-Type: application/json\r\n"
+printf "Access-Control-Allow-Origin: *\r\n"
+printf "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
+printf "Access-Control-Allow-Headers: Content-Type\r\n\r\n"
+
+CTRL="/data/adb/modules/e404_controller/bin/e404-ctrl"
+[ ! -x "$CTRL" ] && CTRL="$(dirname "$0")/../../bin/e404-ctrl"
+
+if [ "$REQUEST_METHOD" = "OPTIONS" ]; then
+    printf '{"status":"ok"}\n'
+    exit 0
+fi
+
+if [ "$REQUEST_METHOD" = "POST" ]; then
+    # Read POST body
+    BODY=""
+    if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ]; then
+        BODY=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null)
+    fi
+
+    # Extract command or action from JSON body
+    # Support {"cmd": "profile game_lite"} or {"action": "profile", "value": "game_lite"}
+    action=$(echo "$BODY" | grep -o '"action"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    value=$(echo "$BODY" | grep -o '"value"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    cmd=$(echo "$BODY" | grep -o '"cmd"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+
+    out=""
+    if [ -n "$cmd" ]; then
+        out=$($CTRL $cmd 2>&1)
+    elif [ -n "$action" ] && [ -n "$value" ]; then
+        out=$($CTRL "$action" "$value" 2>&1)
+    elif [ -n "$action" ]; then
+        out=$($CTRL "$action" 2>&1)
+    fi
+
+    # Return status after command
+    printf '{"success":true,"output":"%s"}\n' "$(echo "$out" | tr '\n' ' ' | sed 's/"/\\"/g')"
+    exit 0
+fi
+
+# Default: GET -> return full system JSON
+$CTRL status
+exit 0

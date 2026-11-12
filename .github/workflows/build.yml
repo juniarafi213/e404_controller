@@ -1,0 +1,62 @@
+name: Build E404 Controller & Rust Daemon
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+          add-to-path: true
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust Daemon
+        working-directory: daemon-rs
+        run: |
+          cargo ndk -t arm64-v8a build --release
+          cp target/aarch64-linux-android/release/e404-daemon ../bin/e404-daemon-rust
+          chmod +x ../bin/e404-daemon-rust
+
+      - name: Package Flashable Magisk/KernelSU Zip
+        run: |
+          chmod +x bin/e404-ctrl bin/e404-daemon service.sh action.sh customize.sh uninstall.sh webroot/cgi-bin/api
+          zip -r9 E404_Controller_v1.1.0.zip . -x "daemon-rs/*" -x ".git/*" -x ".github/*" -x "*.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: E404_Controller_v1.1.0
+          path: E404_Controller_v1.1.0.zip
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: E404_Controller_v1.1.0.zip
+          name: E404 Controller ${{ github.ref_name }}
+          body: |
+            ### E404 Controller (SM8150 / Poco X3 Pro)
+            - Auto Game Detection Daemon with 0% CPU inotify engine
+            - Performance Lite toggle (cap 585 MHz GPU to prevent DDR 2133MHz battery drain)
+            - Rust event daemon compiled with NDK
+            - Material 3 WebUI with real-time hardware telemetry
