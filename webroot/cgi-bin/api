@@ -8,6 +8,8 @@ printf "Access-Control-Allow-Headers: Content-Type\r\n\r\n"
 
 CTRL="/data/adb/modules/e404_controller/bin/e404-ctrl"
 [ ! -x "$CTRL" ] && CTRL="$(dirname "$0")/../../bin/e404-ctrl"
+GAMELIST="/data/adb/modules/e404_controller/config/gamelist.txt"
+[ ! -f "$GAMELIST" ] && GAMELIST="$(dirname "$0")/../../config/gamelist.txt"
 
 if [ "$REQUEST_METHOD" = "OPTIONS" ]; then
     printf '{"status":"ok"}\n'
@@ -15,17 +17,47 @@ if [ "$REQUEST_METHOD" = "OPTIONS" ]; then
 fi
 
 if [ "$REQUEST_METHOD" = "POST" ]; then
-    # Read POST body
     BODY=""
     if [ -n "$CONTENT_LENGTH" ] && [ "$CONTENT_LENGTH" -gt 0 ]; then
         BODY=$(dd bs=1 count="$CONTENT_LENGTH" 2>/dev/null)
     fi
 
-    # Extract command or action from JSON body
-    # Support {"cmd": "profile game_lite"} or {"action": "profile", "value": "game_lite"}
     action=$(echo "$BODY" | grep -o '"action"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
     value=$(echo "$BODY" | grep -o '"value"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+    pkg=$(echo "$BODY" | grep -o '"package"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
     cmd=$(echo "$BODY" | grep -o '"cmd"[[:space:]]*:[[:space:]]*"[^"]*"' | cut -d'"' -f4)
+
+    if [ "$action" = "apps" ]; then
+        # Return user packages list with gamelist membership
+        printf '{"apps":['
+        first=1
+        for p in $(pm list packages -3 2>/dev/null | sed 's/^package://'); do
+            [ -z "$p" ] && continue
+            in_game=0
+            if [ -f "$GAMELIST" ] && grep -F -x -q "$p" "$GAMELIST"; then
+                in_game=1
+            fi
+            if [ "$first" -eq 1 ]; then
+                first=0
+            else
+                printf ','
+            fi
+            printf '{"package":"%s","in_game":%d}' "$p" "$in_game"
+        done
+        printf ']}\n'
+        exit 0
+    fi
+
+    if [ "$action" = "toggle_app" ] && [ -n "$pkg" ]; then
+        if [ -f "$GAMELIST" ] && grep -F -x -q "$pkg" "$GAMELIST"; then
+            $CTRL game remove "$pkg" >/dev/null 2>&1
+            printf '{"success":true,"in_game":0,"package":"%s"}\n' "$pkg"
+        else
+            $CTRL game add "$pkg" >/dev/null 2>&1
+            printf '{"success":true,"in_game":1,"package":"%s"}\n' "$pkg"
+        fi
+        exit 0
+    fi
 
     out=""
     if [ -n "$cmd" ]; then
@@ -36,8 +68,28 @@ if [ "$REQUEST_METHOD" = "POST" ]; then
         out=$($CTRL "$action" 2>&1)
     fi
 
-    # Return status after command
     printf '{"success":true,"output":"%s"}\n' "$(echo "$out" | tr '\n' ' ' | sed 's/"/\\"/g')"
+    exit 0
+fi
+
+# GET request query check
+if echo "$QUERY_STRING" | grep -q "action=apps"; then
+    printf '{"apps":['
+    first=1
+    for p in $(pm list packages -3 2>/dev/null | sed 's/^package://'); do
+        [ -z "$p" ] && continue
+        in_game=0
+        if [ -f "$GAMELIST" ] && grep -F -x -q "$p" "$GAMELIST"; then
+            in_game=1
+        fi
+        if [ "$first" -eq 1 ]; then
+            first=0
+        else
+            printf ','
+        fi
+        printf '{"package":"%s","in_game":%d}' "$p" "$in_game"
+    done
+    printf ']}\n'
     exit 0
 fi
 

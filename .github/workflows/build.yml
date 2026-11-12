@@ -40,23 +40,32 @@ jobs:
       - name: Package Flashable Magisk/KernelSU Zip
         run: |
           chmod +x bin/e404-ctrl bin/e404-daemon service.sh action.sh customize.sh uninstall.sh webroot/cgi-bin/api
-          zip -r9 E404_Controller_v1.1.0.zip . -x "daemon-rs/*" -x ".git/*" -x ".github/*" -x "*.zip"
+          zip -r9 E404_Controller_v1.2.0.zip . -x "daemon-rs/*" -x ".git/*" -x ".github/*" -x "*.zip"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: E404_Controller_v1.1.0
-          path: E404_Controller_v1.1.0.zip
+          name: E404_Controller_v1.2.0
+          path: E404_Controller_v1.2.0.zip
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: E404_Controller_v1.1.0.zip
+          files: E404_Controller_v1.2.0.zip
           name: E404 Controller ${{ github.ref_name }}
           body: |
-            ### E404 Controller (SM8150 / Poco X3 Pro)
-            - Auto Game Detection Daemon with 0% CPU inotify engine
-            - Performance Lite toggle (cap 585 MHz GPU to prevent DDR 2133MHz battery drain)
-            - Rust event daemon compiled with NDK
-            - Material 3 WebUI with real-time hardware telemetry
+            ### E404 Controller v1.2.0 (SM8150 / Poco X3 Pro)
+            - **Benchmark vs Performance Dynamic Scaling**:
+              - Benchmark: 100% unleashes full hardware potential (692 MHz GPU, 2.96 GHz Prime, rate limit 500µs, uclamp top-app min 50%).
+              - Performance: Dynamic scaling with intelligent load response (capped 585 MHz GPU with 150 MHz idle, 2.45 GHz Prime, uclamp top-app min 15%).
+            - **ROM Battery Saver Sync**:
+              - Battery mode activates *only* when the AOSP built-in battery saver is active.
+              - CPU sweet-spot minimums (1.34G/1.48G/1.40G) prevent UI lag while maximizing power saving.
+            - **uclamp Tuning**:
+              - top-app/cpu.uclamp.min, latency_sensitive, and background/cpu.uclamp.max configured dynamically per profile.
+            - **Material Design 3 Bottom Navigation & App Manager**:
+              - Seamless switching between live Dashboard and Game / App Manager.
+              - Search and toggle 3rd-party installed apps into auto-detection gamelist.
+            - **Toast Notification**:
+              - Direct system toast / notification popup on mode transitions and game launches.

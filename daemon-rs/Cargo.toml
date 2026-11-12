@@ -1,9 +1,9 @@
 [package]
 name = "e404-daemon"
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 authors = ["E404 x Antigravity"]
-description = "Ultra-low CPU event-driven game detection daemon for Poco X3 Pro (SM8150)"
+description = "Ultra-low CPU event-driven game & battery saver detection daemon for Poco X3 Pro (SM8150)"
 
 [dependencies]
 libc = "0.2"

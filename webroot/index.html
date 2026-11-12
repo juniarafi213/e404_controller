@@ -15,16 +15,14 @@
       --on-primary: #003546;
       --primary-container: #004d64;
       --on-primary-container: #bbe9ff;
-      --secondary-container: #33444f;
-      --on-secondary-container: #cee5f6;
       --on-surface: #e1e2e5;
       --on-surface-variant: #8a96a0;
       --outline: #38454f;
       --outline-variant: #26333c;
-      --perf-color: #ffb4ab;
-      --perf-container: #690005;
-      --lite-color: #ffb77b;
-      --lite-container: #502400;
+      --bench-color: #ffb4ab;
+      --bench-container: #690005;
+      --perf-color: #ffb77b;
+      --perf-container: #502400;
       --bal-color: #8cd694;
       --bal-container: #005322;
       --bat-color: #79d1ff;
@@ -34,445 +32,143 @@
       --radius-lg: 24px;
       --radius-pill: 9999px;
     }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; user-select: none; }
     body {
       background-color: var(--bg);
       color: var(--on-surface);
-      font-family: 'Google Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
       line-height: 1.5;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       overflow-x: hidden;
-      -webkit-font-smoothing: antialiased;
+      padding-bottom: 74px;
     }
+    .container { max-width: 680px; margin: 0 auto; padding: 16px; width: 100%; }
+    header { padding: 8px 4px 16px 4px; display: flex; align-items: center; justify-content: space-between; }
+    .brand h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge-soc { background: var(--surface-container-high); border: 1px solid var(--outline); color: var(--primary); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--radius-pill); }
+    .brand p { font-size: 12px; color: var(--on-surface-variant); margin-top: 2px; }
+    .live-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--bal-color); background: var(--surface-container); border: 1px solid var(--outline-variant); padding: 4px 10px; border-radius: var(--radius-pill); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bal-color); box-shadow: 0 0 8px var(--bal-color); }
+    
+    .card { background: var(--surface); border: 1px solid var(--outline-variant); border-radius: var(--radius-lg); padding: 18px; margin-bottom: 16px; }
+    .card-title { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--on-surface-variant); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .card-title svg { width: 16px; height: 16px; fill: currentColor; }
 
-    .container {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 16px 16px 80px 16px;
-      width: 100%;
-    }
+    /* Profile Grid */
+    .profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .profile-btn { background: var(--surface-container); border: 1px solid transparent; border-radius: var(--radius-md); padding: 14px; text-align: left; cursor: pointer; transition: all 0.2s cubic-bezier(0.2, 0, 0, 1); display: flex; flex-direction: column; gap: 6px; }
+    .profile-btn:active { transform: scale(0.98); }
+    .profile-btn .p-header { display: flex; align-items: center; justify-content: space-between; }
+    .profile-btn .p-name { font-size: 14px; font-weight: 700; color: var(--on-surface); }
+    .profile-btn .p-icon { width: 18px; height: 18px; opacity: 0.7; }
+    .profile-btn .p-desc { font-size: 11px; color: var(--on-surface-variant); line-height: 1.35; }
+    .profile-btn .p-badge { font-size: 9px; padding: 1px 6px; border-radius: var(--radius-pill); font-weight: 600; margin-left: 6px; }
 
-    /* Header Bar */
-    header {
-      padding: 12px 4px 20px 4px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
+    .profile-btn.active-benchmark { background: var(--bench-container); border-color: var(--bench-color); }
+    .profile-btn.active-benchmark .p-name, .profile-btn.active-benchmark .p-icon { color: var(--bench-color); opacity: 1; }
+    .profile-btn.active-benchmark .p-desc { color: #ffd8d3; }
 
-    .brand {
-      display: flex;
-      flex-direction: column;
-    }
+    .profile-btn.active-performance { background: var(--perf-container); border-color: var(--perf-color); }
+    .profile-btn.active-performance .p-name, .profile-btn.active-performance .p-icon { color: var(--perf-color); opacity: 1; }
+    .profile-btn.active-performance .p-desc { color: #ffe0c6; }
 
-    .brand h1 {
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      color: var(--on-surface);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
+    .profile-btn.active-balanced { background: var(--bal-container); border-color: var(--bal-color); }
+    .profile-btn.active-balanced .p-name, .profile-btn.active-balanced .p-icon { color: var(--bal-color); opacity: 1; }
+    .profile-btn.active-balanced .p-desc { color: #c4f3cb; }
 
-    .badge-soc {
-      background: var(--surface-container-high);
-      border: 1px solid var(--outline);
-      color: var(--primary);
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: var(--radius-pill);
-      letter-spacing: 0.3px;
-    }
-
-    .brand p {
-      font-size: 12px;
-      color: var(--on-surface-variant);
-      margin-top: 2px;
-    }
-
-    .live-badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--bal-color);
-      background: var(--surface-container);
-      border: 1px solid var(--outline-variant);
-      padding: 4px 10px;
-      border-radius: var(--radius-pill);
-    }
-
-    .live-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: var(--bal-color);
-      box-shadow: 0 0 8px var(--bal-color);
-    }
-
-    /* Card Standard */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--outline-variant);
-      border-radius: var(--radius-lg);
-      padding: 18px;
-      margin-bottom: 16px;
-    }
-
-    .card-title {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      color: var(--on-surface-variant);
-      margin-bottom: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .card-title svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
-    }
-
-    /* Profiles Grid */
-    .profile-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-    }
-
-    .profile-btn {
-      background: var(--surface-container);
-      border: 1px solid transparent;
-      border-radius: var(--radius-md);
-      padding: 14px;
-      text-align: left;
-      cursor: pointer;
-      position: relative;
-      transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .profile-btn:active {
-      transform: scale(0.98);
-    }
-
-    .profile-btn .p-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .profile-btn .p-name {
-      font-size: 14px;
-      font-weight: 700;
-      color: var(--on-surface);
-    }
-
-    .profile-btn .p-icon {
-      width: 18px;
-      height: 18px;
-      opacity: 0.7;
-    }
-
-    .profile-btn .p-desc {
-      font-size: 11px;
-      color: var(--on-surface-variant);
-      line-height: 1.35;
-    }
-
-    /* Active states for profiles */
-    .profile-btn.active-performance {
-      background: var(--perf-container);
-      border-color: var(--perf-color);
-    }
-    .profile-btn.active-performance .p-name,
-    .profile-btn.active-performance .p-icon {
-      color: var(--perf-color);
-      opacity: 1;
-    }
-    .profile-btn.active-performance .p-desc {
-      color: #ffd8d3;
-    }
-
-    .profile-btn.active-game_lite {
-      background: var(--lite-container);
-      border-color: var(--lite-color);
-    }
-    .profile-btn.active-game_lite .p-name,
-    .profile-btn.active-game_lite .p-icon {
-      color: var(--lite-color);
-      opacity: 1;
-    }
-    .profile-btn.active-game_lite .p-desc {
-      color: #ffe0c6;
-    }
-
-    .profile-btn.active-balanced {
-      background: var(--bal-container);
-      border-color: var(--bal-color);
-    }
-    .profile-btn.active-balanced .p-name,
-    .profile-btn.active-balanced .p-icon {
-      color: var(--bal-color);
-      opacity: 1;
-    }
-    .profile-btn.active-balanced .p-desc {
-      color: #c4f3cb;
-    }
-
-    .profile-btn.active-battery {
-      background: var(--bat-container);
-      border-color: var(--bat-color);
-    }
-    .profile-btn.active-battery .p-name,
-    .profile-btn.active-battery .p-icon {
-      color: var(--bat-color);
-      opacity: 1;
-    }
-    .profile-btn.active-battery .p-desc {
-      color: #caecff;
-    }
+    .profile-btn.active-battery { background: var(--bat-container); border-color: var(--bat-color); }
+    .profile-btn.active-battery .p-name, .profile-btn.active-battery .p-icon { color: var(--bat-color); opacity: 1; }
+    .profile-btn.active-battery .p-desc { color: #caecff; }
 
     /* Metrics Grid */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
+    .metrics-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (max-width: 420px) { .metrics-grid { grid-template-columns: 1fr; } }
+    .metric-box { background: var(--surface-container); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+    .metric-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--on-surface-variant); font-weight: 500; }
+    .metric-val { font-size: 18px; font-weight: 700; color: var(--on-surface); }
+    .metric-sub { font-size: 11px; color: var(--on-surface-variant); display: flex; align-items: center; gap: 4px; }
+    .bar-bg { height: 4px; background: var(--surface-container-highest); border-radius: var(--radius-pill); overflow: hidden; margin-top: 4px; }
+    .bar-fill { height: 100%; background: var(--primary); border-radius: var(--radius-pill); transition: width 0.3s ease; }
 
-    @media (max-width: 420px) {
-      .metrics-grid {
-        grid-template-columns: 1fr;
-      }
-    }
+    /* Toggles */
+    .toggle-list { display: flex; flex-direction: column; gap: 10px; }
+    .toggle-item { display: flex; align-items: center; justify-content: space-between; background: var(--surface-container); padding: 14px 16px; border-radius: var(--radius-md); cursor: pointer; }
+    .toggle-info { display: flex; flex-direction: column; gap: 2px; padding-right: 16px; }
+    .toggle-title { font-size: 14px; font-weight: 600; color: var(--on-surface); }
+    .toggle-desc { font-size: 11px; color: var(--on-surface-variant); line-height: 1.3; }
 
-    .metric-box {
-      background: var(--surface-container);
-      border-radius: var(--radius-md);
-      padding: 12px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .m3-switch { position: relative; width: 50px; height: 28px; flex-shrink: 0; }
+    .m3-switch input { opacity: 0; width: 0; height: 0; }
+    .switch-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--surface-container-highest); border: 2px solid var(--outline); border-radius: var(--radius-pill); transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+    .switch-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: var(--outline); border-radius: 50%; transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+    input:checked + .switch-slider { background-color: var(--primary); border-color: var(--primary); }
+    input:checked + .switch-slider:before { transform: translateX(22px); background-color: var(--on-primary); width: 20px; height: 20px; left: 2px; bottom: 2px; }
 
-    .metric-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: var(--on-surface-variant);
-      font-weight: 500;
-    }
+    /* App Manager Tab */
+    .search-box { width: 100%; background: var(--surface-container); border: 1px solid var(--outline); color: var(--on-surface); padding: 12px 16px; border-radius: var(--radius-pill); font-size: 14px; outline: none; margin-bottom: 14px; }
+    .search-box:focus { border-color: var(--primary); }
+    .app-list { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 240px); overflow-y: auto; }
+    .app-item { display: flex; align-items: center; justify-content: space-between; background: var(--surface-container); padding: 12px 14px; border-radius: var(--radius-md); }
+    .app-name { font-size: 13px; font-weight: 600; color: var(--on-surface); }
+    .app-pkg { font-size: 11px; color: var(--on-surface-variant); word-break: break-all; }
 
-    .metric-val {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--on-surface);
-      font-feature-settings: "tnum";
-    }
-
-    .metric-sub {
-      font-size: 11px;
-      color: var(--on-surface-variant);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .bar-bg {
-      height: 4px;
-      background: var(--surface-container-highest);
-      border-radius: var(--radius-pill);
-      overflow: hidden;
-      margin-top: 4px;
-    }
-
-    .bar-fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: var(--radius-pill);
-      transition: width 0.3s ease;
-    }
-
-    /* Quick Toggles List */
-    .toggle-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .toggle-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--surface-container);
-      padding: 14px 16px;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-
-    .toggle-item:active {
-      background: var(--surface-container-high);
-    }
-
-    .toggle-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      padding-right: 16px;
-    }
-
-    .toggle-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--on-surface);
-    }
-
-    .toggle-desc {
-      font-size: 11px;
-      color: var(--on-surface-variant);
-      line-height: 1.3;
-    }
-
-    /* M3 Switch Component */
-    .m3-switch {
-      position: relative;
-      width: 50px;
-      height: 28px;
-      flex-shrink: 0;
-    }
-
-    .m3-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .switch-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
       left: 0;
       right: 0;
-      bottom: 0;
-      background-color: var(--surface-container-highest);
-      border: 2px solid var(--outline);
-      border-radius: var(--radius-pill);
-      transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .switch-slider:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 4px;
-      bottom: 4px;
-      background-color: var(--outline);
-      border-radius: 50%;
-      transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    input:checked + .switch-slider {
-      background-color: var(--primary);
-      border-color: var(--primary);
-    }
-
-    input:checked + .switch-slider:before {
-      transform: translateX(22px);
-      background-color: var(--on-primary);
-      width: 20px;
-      height: 20px;
-      left: 2px;
-      bottom: 2px;
-    }
-
-    /* Info Table */
-    .info-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 12px;
-    }
-
-    .info-table tr {
-      border-bottom: 1px solid var(--outline-variant);
-    }
-
-    .info-table tr:last-child {
-      border-bottom: none;
-    }
-
-    .info-table td {
-      padding: 10px 4px;
-      color: var(--on-surface-variant);
-    }
-
-    .info-table td.val {
-      text-align: right;
-      color: var(--on-surface);
-      font-weight: 600;
-      font-family: monospace;
-    }
-
-    /* Toast Snackbar */
-    #toast {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%) translateY(100px);
-      background: var(--surface-container-highest);
-      border: 1px solid var(--outline);
-      color: var(--on-surface);
-      padding: 10px 20px;
-      border-radius: var(--radius-pill);
-      font-size: 12px;
-      font-weight: 500;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-      transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      z-index: 1000;
-      pointer-events: none;
+      height: 64px;
+      background: var(--surface);
+      border-top: 1px solid var(--outline-variant);
       display: flex;
+      justify-content: space-around;
       align-items: center;
-      gap: 8px;
+      z-index: 100;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      color: var(--on-surface-variant);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      background: none;
+      border: none;
+      padding: 6px 20px;
+      border-radius: var(--radius-pill);
+      transition: all 0.2s;
+    }
+    .nav-item svg { width: 20px; height: 20px; fill: currentColor; }
+    .nav-item.active {
+      color: var(--primary);
+      background: var(--surface-container-high);
+      font-weight: 700;
     }
 
-    #toast.show {
-      transform: translateX(-50%) translateY(0);
-    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Toast */
+    #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface-container-highest); border: 1px solid var(--outline); color: var(--on-surface); padding: 10px 20px; border-radius: var(--radius-pill); font-size: 12px; font-weight: 500; box-shadow: 0 4px 16px rgba(0,0,0,0.4); transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; pointer-events: none; }
+    #toast.show { transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
 
-  <div class="container">
-    <!-- Header -->
+  <!-- Tab 1: Dashboard -->
+  <div id="tab-dashboard" class="tab-content active container">
     <header>
       <div class="brand">
-        <h1>
-          E404 Controller
-          <span class="badge-soc">SM8150</span>
-        </h1>
-        <p id="subheading">Kernel 4.19.404R • BORE 7.0.1</p>
+        <h1>E404 Controller <span class="badge-soc">SM8150</span></h1>
+        <p>Kernel 4.19.404R • BORE 7.0.1 • uclamp</p>
       </div>
       <div class="live-badge">
         <div class="live-dot"></div>
@@ -480,29 +176,29 @@
       </div>
     </header>
 
-    <!-- Profile Selector -->
+    <!-- Profiles -->
     <section class="card">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
         Mode Profil
       </div>
       <div class="profile-grid">
+        <!-- Benchmark -->
+        <button class="profile-btn" id="btn-benchmark" onclick="selectProfile('benchmark')">
+          <div class="p-header">
+            <span class="p-name">Benchmark</span>
+            <svg class="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.48 12.35c-1.57-.56-2.92-1.47-3.97-2.67-.78-.89-1.37-1.91-1.74-3.02C13.2 4.96 13 3.19 13 2c-3.13 1.25-5.26 4.15-5.46 7.46-.03.49-.04 1-.04 1.54 0 1.94.57 3.75 1.57 5.28-1.89-.35-3.37-1.72-3.83-3.52-.39 1.07-.46 2.22-.2 3.32.55 2.37 2.35 4.29 4.71 5.02 4.41 1.37 8.93-1.07 9.87-5.32.22-.98.17-1.97-.14-2.91-.32.52-.69.99-1.12 1.4z"/></svg>
+          </div>
+          <span class="p-desc">100% potensi penuh: 692 MHz GPU, Prime 2.96 GHz, uclamp 50%, BORE slice 2.</span>
+        </button>
+
         <!-- Performance -->
         <button class="profile-btn" id="btn-performance" onclick="selectProfile('performance')">
           <div class="p-header">
             <span class="p-name">Performance</span>
-            <svg class="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M19.48 12.35c-1.57-.56-2.92-1.47-3.97-2.67-.78-.89-1.37-1.91-1.74-3.02C13.2 4.96 13 3.19 13 2c-3.13 1.25-5.26 4.15-5.46 7.46-.03.49-.04 1-.04 1.54 0 1.94.57 3.75 1.57 5.28-1.89-.35-3.37-1.72-3.83-3.52-.39 1.07-.46 2.22-.2 3.32.55 2.37 2.35 4.29 4.71 5.02 4.41 1.37 8.93-1.07 9.87-5.32.22-.98.17-1.97-.14-2.91-.32.52-.69.99-1.12 1.4z"/></svg>
-          </div>
-          <span class="p-desc">692 MHz GPU, unconstrained CPU, BORE slice 2, Lyb touch game.</span>
-        </button>
-
-        <!-- Game Lite -->
-        <button class="profile-btn" id="btn-game_lite" onclick="selectProfile('game_lite')">
-          <div class="p-header">
-            <span class="p-name">Game Lite</span>
             <svg class="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H8v3H6v-3H3v-2h3V8h2v3h3v2zm4.5 2c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm4-3c-.83 0-1.5-.67-1.5-1.5S18.67 9 19.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
           </div>
-          <span class="p-desc">Cap 585 MHz GPU (cegah boros DDR 2133 MHz ZZZ), adem & stabil.</span>
+          <span class="p-desc">Dynamic scaling: Naik freq hanya saat game berat/patah, cap 585 MHz (anti boros ZZZ).</span>
         </button>
 
         <!-- Balanced -->
@@ -517,10 +213,10 @@
         <!-- Battery -->
         <button class="profile-btn" id="btn-battery" onclick="selectProfile('battery')">
           <div class="p-header">
-            <span class="p-name">Battery</span>
+            <span class="p-name">Battery <span class="badge-soc" style="font-size: 8px;">Auto ROM</span></span>
             <svg class="p-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M15.67 4H14V2h-4v2H8.33C7.6 4 7 4.6 7 5.33v15.33C7 21.4 7.6 22 8.33 22h7.33c.74 0 1.34-.6 1.34-1.33V5.33C17 4.6 16.4 4 15.67 4zM11 20v-5.5H9L13 7v5.5h2L11 20z"/></svg>
           </div>
-          <span class="p-desc">Capping CPU & 427 MHz GPU, slow governor ramp, hemat daya.</span>
+          <span class="p-desc">Otomatis aktif saat Hemat Baterai ROM On. Freq minimum sweet-spot anti-lag UI.</span>
         </button>
       </div>
     </section>
@@ -529,71 +225,50 @@
     <section class="card">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
-        Live Hardware Monitor
+        Live Hardware & UCLAMP Monitor
       </div>
       <div class="metrics-grid">
-        <!-- CPU Silver / Gold / Prime -->
         <div class="metric-box">
-          <div class="metric-head">
-            <span>CPU CLUSTERS</span>
-            <span id="cpu-temp">--°C</span>
-          </div>
+          <div class="metric-head"><span>CPU CLUSTERS</span><span id="cpu-temp">--°C</span></div>
           <div class="metric-val" id="cpu-prime-val">-- MHz</div>
-          <div class="metric-sub">
-            <span>Prime: <b id="cpu-prime-cur">--</b></span> • <span>Gold: <b id="cpu-gold-cur">--</b></span>
-          </div>
+          <div class="metric-sub">Prime: <b id="cpu-prime-cur">--</b> • Gold: <b id="cpu-gold-cur">--</b></div>
           <div class="bar-bg"><div class="bar-fill" id="cpu-bar" style="width: 25%"></div></div>
         </div>
 
-        <!-- GPU Adreno 640 -->
         <div class="metric-box">
-          <div class="metric-head">
-            <span>GPU ADRENO 640</span>
-            <span id="gpu-temp">--°C</span>
-          </div>
+          <div class="metric-head"><span>GPU ADRENO 640</span><span id="gpu-temp">--°C</span></div>
           <div class="metric-val" id="gpu-clk-val">-- MHz</div>
           <div class="metric-sub" id="gpu-pwr-level">OPP Max: - • OPP Min: -</div>
           <div class="bar-bg"><div class="bar-fill" id="gpu-bar" style="width: 20%; background: #ffb77b;"></div></div>
         </div>
 
-        <!-- Battery State -->
         <div class="metric-box">
-          <div class="metric-head">
-            <span>BATERAI</span>
-            <span id="bat-status-text">--</span>
-          </div>
+          <div class="metric-head"><span>BATERAI</span><span id="bat-status-text">--</span></div>
           <div class="metric-val" id="bat-cap-val">--%</div>
-          <div class="metric-sub">
-            <span id="bat-current-val">-- mA</span> • <span id="bat-temp-val">--°C</span>
-          </div>
+          <div class="metric-sub"><span id="bat-current-val">-- mA</span> • <span id="bat-temp-val">--°C</span></div>
           <div class="bar-bg"><div class="bar-fill" id="bat-bar" style="width: 50%; background: #8cd694;"></div></div>
         </div>
 
-        <!-- BORE & Storage -->
         <div class="metric-box">
-          <div class="metric-head">
-            <span>KERNEL TUNABLES</span>
-            <span>UFS 3.1</span>
-          </div>
-          <div class="metric-val" id="bore-info">BORE Active</div>
-          <div class="metric-sub" id="sched-info">Burst Protect: Lv 1 • RA: 128KB</div>
+          <div class="metric-head"><span>UCLAMP & SCHEDULER</span><span>BORE 7.0.1</span></div>
+          <div class="metric-val" id="uclamp-info">uclamp active</div>
+          <div class="metric-sub" id="sched-info">Top Min: -- • BG Max: --</div>
           <div class="bar-bg"><div class="bar-fill" style="width: 100%; background: #78d2f5;"></div></div>
         </div>
       </div>
     </section>
 
-    <!-- Quick Hardware Toggles -->
+    <!-- Quick Toggles -->
     <section class="card">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
         Fitur & Tweak Hardware
       </div>
       <div class="toggle-list">
-        <!-- Auto Game Detection -->
         <div class="toggle-item" onclick="toggleSwitch('autogame')">
           <div class="toggle-info">
-            <span class="toggle-title">Auto Game Mode (Daemon)</span>
-            <span class="toggle-desc" id="daemon-desc">Otomatis pindah ke mode gaming saat game dibuka & kembali ke profil awal saat keluar.</span>
+            <span class="toggle-title">Auto Game Detection</span>
+            <span class="toggle-desc" id="daemon-desc">Otomatis pindah ke mode gaming saat game dibuka & kembali saat keluar.</span>
           </div>
           <label class="m3-switch" onclick="event.stopPropagation()">
             <input type="checkbox" id="switch-autogame" onchange="handleToggle('autogame', this.checked)">
@@ -601,11 +276,10 @@
           </label>
         </div>
 
-        <!-- Performance Lite Toggle -->
         <div class="toggle-item" onclick="toggleSwitch('perflite')">
           <div class="toggle-info">
-            <span class="toggle-title">Performance Lite (Game Lite Lock)</span>
-            <span class="toggle-desc">Paksa game mode selalu Game Lite (cap 585 MHz GPU). Mencegah boros baterai & lonjakan RAM DDR 2133 MHz di game seperti ZZZ.</span>
+            <span class="toggle-title">Performance Dynamic (Bukan Benchmark)</span>
+            <span class="toggle-desc">Paksa game menggunakan mode Performance dinamis (585MHz GPU cap). Matikan jika ingin Benchmark 100%.</span>
           </div>
           <label class="m3-switch" onclick="event.stopPropagation()">
             <input type="checkbox" id="switch-perflite" onchange="handleToggle('perflite', this.checked)">
@@ -613,11 +287,10 @@
           </label>
         </div>
 
-        <!-- Bypass Charging -->
         <div class="toggle-item" onclick="toggleSwitch('bypass')">
           <div class="toggle-info">
             <span class="toggle-title">Bypass Charging</span>
-            <span class="toggle-desc">Tenaga langsung dialirkan ke sistem tanpa mengisi baterai (mencegah baterai panas saat gaming).</span>
+            <span class="toggle-desc">Daya langsung ke motherboard tanpa mengisi baterai (mencegah baterai panas).</span>
           </div>
           <label class="m3-switch" onclick="event.stopPropagation()">
             <input type="checkbox" id="switch-bypass" onchange="handleToggle('bypass', this.checked)">
@@ -625,7 +298,6 @@
           </label>
         </div>
 
-        <!-- 6A Fast Charge -->
         <div class="toggle-item" onclick="toggleSwitch('fastcharge')">
           <div class="toggle-info">
             <span class="toggle-title">6A Fast Charge Override</span>
@@ -637,7 +309,6 @@
           </label>
         </div>
 
-        <!-- Lyb Touch -->
         <div class="toggle-item" onclick="toggleSwitch('lyb')">
           <div class="toggle-info">
             <span class="toggle-title">Lyb Low-Latency Touch</span>
@@ -650,48 +321,43 @@
         </div>
       </div>
     </section>
+  </div>
 
-    <!-- System Specs Summary -->
-    <section class="card">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        Detail Perangkat & Konfigurasi
+  <!-- Tab 2: Apps Manager -->
+  <div id="tab-apps" class="tab-content container">
+    <header>
+      <div class="brand">
+        <h1>Kelola Aplikasi <span class="badge-soc" id="app-count-badge">0 Game</span></h1>
+        <p>Integrasikan aplikasi untuk otomatis memicu mode gaming</p>
       </div>
-      <table class="info-table">
-        <tr>
-          <td>Perangkat & SoC</td>
-          <td class="val" id="spec-device">Poco X3 Pro (vayu) / SM8150</td>
-        </tr>
-        <tr>
-          <td>Kernel Versi</td>
-          <td class="val" id="spec-kernel">4.19.404R BORE 7.0.1</td>
-        </tr>
-        <tr>
-          <td>GPU Table (Konabess UV)</td>
-          <td class="val">8 OPP Levels (150 - 692 MHz)</td>
-        </tr>
-        <tr>
-          <td>CPU Cluster Max</td>
-          <td class="val" id="spec-cpu-max">Silver 1.8G | Gold 2.4G | Prime 2.96G</td>
-        </tr>
-        <tr>
-          <td>Backend Komunikasi</td>
-          <td class="val" id="spec-backend">Mendeteksi...</td>
-        </tr>
-      </table>
-    </section>
+    </header>
+
+    <input type="text" id="app-search" class="search-box" placeholder="Cari nama aplikasi atau package..." oninput="filterApps()">
+
+    <div class="app-list" id="apps-container">
+      <div style="text-align: center; padding: 40px; color: var(--on-surface-variant);">Memuat daftar aplikasi...</div>
+    </div>
   </div>
 
-  <!-- Toast Notification -->
-  <div id="toast">
-    <span id="toast-text">Pengaturan diterapkan</span>
-  </div>
+  <!-- Bottom Navigation Bar -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item" id="nav-apps" onclick="switchTab('apps')">
+      <svg viewBox="0 0 24 24"><path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/></svg>
+      <span>Kelola Game</span>
+    </button>
+  </nav>
+
+  <!-- Toast -->
+  <div id="toast"><span id="toast-text">Pengaturan diterapkan</span></div>
 
   <script>
-    // Dual Bridge Execution Handler
-    let isKsuBridge = (typeof ksu !== 'undefined');
     let pollTimer = null;
     let cbCounter = 0;
+    let installedApps = [];
 
     function showToast(msg) {
       const toast = document.getElementById('toast');
@@ -708,7 +374,7 @@
             const cbName = 'ksu_cb_' + Date.now() + '_' + (cbCounter++);
             window[cbName] = (errno, stdout, stderr) => {
               delete window[cbName];
-              resolve({ errno: errno, stdout: stdout, stderr: stderr });
+              resolve({ errno, stdout, stderr });
             };
             const res = ksu.exec(command, "{}", cbName);
             if (res && typeof res.then === 'function') {
@@ -719,7 +385,6 @@
           }
         });
       } else {
-        // Fallback HTTP CGI Bridge
         try {
           const res = await fetch('/cgi-bin/api', {
             method: 'POST',
@@ -738,41 +403,26 @@
       if (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') {
         const res = await runShell('/data/adb/modules/e404_controller/bin/e404-ctrl status');
         if (res && res.stdout) {
-          try {
-            return JSON.parse(res.stdout);
-          } catch(e) {}
+          try { return JSON.parse(res.stdout); } catch(e) {}
         }
         return null;
       } else {
         try {
           const res = await fetch('/cgi-bin/api');
           return await res.json();
-        } catch (e) {
-          return null;
-        }
+        } catch (e) { return null; }
       }
     }
 
     function renderUI(data) {
       if (!data) return;
 
-      // Update backend indicator
-      document.getElementById('spec-backend').innerText = (typeof ksu !== 'undefined') ? 'KernelSU JavaScript Bridge' : 'Localhost HTTP (Port 8404)';
-
-      // Highlight active profile
       const prof = data.profile || 'balanced';
-      ['performance', 'game_lite', 'balanced', 'battery'].forEach(p => {
+      ['benchmark', 'performance', 'balanced', 'battery'].forEach(p => {
         const btn = document.getElementById('btn-' + p);
-        if (btn) {
-          if (p === prof) {
-            btn.className = 'profile-btn active-' + p;
-          } else {
-            btn.className = 'profile-btn';
-          }
-        }
+        if (btn) btn.className = (p === prof) ? ('profile-btn active-' + p) : 'profile-btn';
       });
 
-      // CPU Telemetry
       if (data.cpu) {
         const primeMhz = Math.round((data.cpu.prime_cur || 0) / 1000);
         const goldMhz = Math.round((data.cpu.gold_cur || 0) / 1000);
@@ -780,61 +430,46 @@
         document.getElementById('cpu-prime-cur').innerText = primeMhz + 'M';
         document.getElementById('cpu-gold-cur').innerText = goldMhz + 'M';
         document.getElementById('cpu-temp').innerText = (data.cpu.temp || '--') + '°C';
-
         const cpuMax = Math.max(1, (data.cpu.prime_max || 2956800) / 1000);
-        const pct = Math.min(100, Math.round((primeMhz / cpuMax) * 100));
-        document.getElementById('cpu-bar').style.width = Math.max(12, pct) + '%';
+        document.getElementById('cpu-bar').style.width = Math.max(12, Math.min(100, Math.round((primeMhz / cpuMax) * 100))) + '%';
       }
 
-      // GPU Telemetry
       if (data.gpu) {
         const gpuMhz = data.gpu.cur_freq_mhz || 150;
         document.getElementById('gpu-clk-val').innerText = gpuMhz + ' MHz';
         document.getElementById('gpu-temp').innerText = (data.gpu.temp || '--') + '°C';
         document.getElementById('gpu-pwr-level').innerText = `OPP Max: ${data.gpu.max_pwrlevel} • OPP Min: ${data.gpu.min_pwrlevel}`;
-        const gpuPct = Math.min(100, Math.round((gpuMhz / 692) * 100));
-        document.getElementById('gpu-bar').style.width = Math.max(12, gpuPct) + '%';
+        document.getElementById('gpu-bar').style.width = Math.max(12, Math.min(100, Math.round((gpuMhz / 692) * 100))) + '%';
       }
 
-      // Battery Telemetry
       if (data.battery) {
         document.getElementById('bat-cap-val').innerText = (data.battery.capacity || '--') + '%';
-        document.getElementById('bat-status-text').innerText = data.battery.status || '--';
+        document.getElementById('bat-status-text').innerText = (data.battery.rom_battery_saver == 1 ? 'Hemat Baterai ROM On' : (data.battery.status || '--'));
         document.getElementById('bat-temp-val').innerText = (data.battery.temp || '--') + '°C';
         const curr = data.battery.current_ma || 0;
         document.getElementById('bat-current-val').innerText = (curr > 0 ? '+' : '') + curr + ' mA';
         document.getElementById('bat-bar').style.width = (data.battery.capacity || 50) + '%';
-
-        // Toggles sync
         document.getElementById('switch-bypass').checked = (data.battery.bypass_charging == 1);
         document.getElementById('switch-fastcharge').checked = (data.battery.force_fast_charge == 1);
       }
 
-      // Lyb Touch sync
       document.getElementById('switch-lyb').checked = (data.lyb_touch == 1);
+      if (document.getElementById('switch-autogame')) document.getElementById('switch-autogame').checked = (data.auto_game == 1);
+      if (document.getElementById('switch-perflite')) document.getElementById('switch-perflite').checked = (data.perf_lite == 1);
 
-      // Auto Game & Performance Lite sync
-      if (document.getElementById('switch-autogame')) {
-        document.getElementById('switch-autogame').checked = (data.auto_game == 1);
-      }
-      if (document.getElementById('switch-perflite')) {
-        document.getElementById('switch-perflite').checked = (data.perf_lite == 1);
-      }
-
-      // Daemon status label
       const descEl = document.getElementById('daemon-desc');
       if (descEl) {
         if (data.active_game) {
-          descEl.innerHTML = `<span style="color: #ffb77b; font-weight: 600;">Game Aktif: ${data.active_game}</span> (Profil Gaming Otomatis)`;
-        } else if (data.daemon_running == 1) {
-          descEl.innerText = "Daemon aktif • Otomatis memicu gaming profil saat game dibuka.";
+          descEl.innerHTML = `<span style="color: #ffb77b; font-weight: 600;">Game: ${data.active_game}</span> (Gaming Active)`;
         } else {
-          descEl.innerText = "Daemon nonaktif • Profil tidak otomatis berganti.";
+          descEl.innerText = data.daemon_running == 1 ? "Daemon aktif • Deteksi game otomatis & hemat baterai AOSP." : "Daemon nonaktif.";
         }
       }
 
-      // BORE & Scheduler
-      document.getElementById('sched-info').innerText = `Burst Protect: Lv ${data.bore_protect_slice || 1} • RA: ${data.ufs_read_ahead_kb || 128}KB`;
+      document.getElementById('sched-info').innerText = `Top Min: ${data.uclamp_top_min || "0.00"} • BG Max: ${data.uclamp_bg_max || "30.00"}`;
+      if (document.getElementById('app-count-badge')) {
+        document.getElementById('app-count-badge').innerText = (data.game_count || 0) + " Terdaftar";
+      }
     }
 
     async function selectProfile(name) {
@@ -854,32 +489,93 @@
 
     function toggleSwitch(feature) {
       const el = document.getElementById('switch-' + feature);
-      if (el) {
-        el.checked = !el.checked;
-        handleToggle(feature, el.checked);
+      if (el) { el.checked = !el.checked; handleToggle(feature, el.checked); }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('nav-' + tab).classList.add('active');
+
+      if (tab === 'apps' && installedApps.length === 0) {
+        loadInstalledApps();
       }
+    }
+
+    async function loadInstalledApps() {
+      const container = document.getElementById('apps-container');
+      container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--on-surface-variant);">Memuat aplikasi terpasang...</div>';
+
+      try {
+        let appList = [];
+        if (typeof ksu !== 'undefined' && typeof ksu.exec === 'function') {
+          const res = await runShell('pm list packages -3');
+          const rawPackages = (res.stdout || '').split('\n').filter(l => l.startsWith('package:')).map(l => l.substring(8).trim());
+          const gameListRaw = (await runShell('cat /data/adb/modules/e404_controller/config/gamelist.txt 2>/dev/null || true')).stdout || '';
+          const gameSet = new Set(gameListRaw.split('\n').map(s => s.trim()));
+
+          appList = rawPackages.map(pkg => ({ package: pkg, in_game: gameSet.has(pkg) ? 1 : 0 }));
+        } else {
+          const res = await fetch('/cgi-bin/api?action=apps');
+          const json = await res.json();
+          appList = json.apps || [];
+        }
+
+        installedApps = appList.sort((a, b) => b.in_game - a.in_game || a.package.localeCompare(b.package));
+        renderAppList(installedApps);
+      } catch (e) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #ffb4ab;">Gagal memuat daftar aplikasi.</div>';
+      }
+    }
+
+    function renderAppList(apps) {
+      const container = document.getElementById('apps-container');
+      if (apps.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--on-surface-variant);">Tidak ada aplikasi ditemukan.</div>';
+        return;
+      }
+
+      container.innerHTML = apps.map(app => `
+        <div class="app-item">
+          <div class="app-info">
+            <span class="app-name">${app.package.split('.').pop()}</span>
+            <span class="app-pkg">${app.package}</span>
+          </div>
+          <label class="m3-switch">
+            <input type="checkbox" ${app.in_game ? 'checked' : ''} onchange="toggleAppGame('${app.package}', this.checked)">
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+      `).join('');
+    }
+
+    async function toggleAppGame(pkg, isGame) {
+      showToast((isGame ? 'Menambahkan ' : 'Menghapus ') + pkg);
+      if (isGame) {
+        await runShell('/data/adb/modules/e404_controller/bin/e404-ctrl game add ' + pkg);
+      } else {
+        await runShell('/data/adb/modules/e404_controller/bin/e404-ctrl game remove ' + pkg);
+      }
+      const item = installedApps.find(a => a.package === pkg);
+      if (item) item.in_game = isGame ? 1 : 0;
+    }
+
+    function filterApps() {
+      const query = document.getElementById('app-search').value.toLowerCase();
+      const filtered = installedApps.filter(a => a.package.toLowerCase().includes(query));
+      renderAppList(filtered);
     }
 
     async function updateLoop() {
       const data = await fetchStatus();
-      if (data) {
-        renderUI(data);
-      }
+      if (data) renderUI(data);
     }
 
-    // Initialize
     window.addEventListener('DOMContentLoaded', async () => {
       await updateLoop();
       pollTimer = setInterval(updateLoop, 2500);
-    });
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        if (pollTimer) clearInterval(pollTimer);
-      } else {
-        updateLoop();
-        pollTimer = setInterval(updateLoop, 2500);
-      }
     });
   </script>
 </body>

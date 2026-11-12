@@ -1,7 +1,7 @@
 #!/system/bin/sh
 #
-# E404 Auto-Game Profile Daemon
-# Monitors foreground applications via system_monitor and switches profiles automatically.
+# E404 Auto-Game & Battery Saver Daemon
+# Monitors foreground applications & ROM battery saver state via system_monitor and inotify.
 #
 
 if [ -d "/data/adb/modules/e404_controller" ]; then
@@ -37,50 +37,63 @@ get_config_val() {
     echo "$default"
 }
 
-set_config_val() {
-    key="$1"
-    val="$2"
-    mkdir -p "$CONF_DIR"
-    if [ ! -f "$CONF_FILE" ]; then
-        echo "${key}=${val}" > "$CONF_FILE"
-    elif grep -q "^${key}=" "$CONF_FILE"; then
-        sed -i "s|^${key}=.*|${key}=${val}|" "$CONF_FILE"
-    else
-        echo "${key}=${val}" >> "$CONF_FILE"
-    fi
-}
-
 handle_event() {
     [ ! -f "$SYS_OUT" ] && return
 
-    # Check if auto game detection is enabled
-    auto_game=$(get_config_val "AUTO_GAME" "1")
-    [ "$auto_game" = "0" ] && return
-
-    # Read sysmon output
+    # Read sysmon status
     focused_line=$(grep "^focused_app" "$SYS_OUT" 2>/dev/null)
     screen_line=$(grep "^screen_awake" "$SYS_OUT" 2>/dev/null)
+    bat_saver_line=$(grep "^battery_saver" "$SYS_OUT" 2>/dev/null)
 
     [ -z "$focused_line" ] && return
 
     pkg=$(echo "$focused_line" | awk '{print $2}')
     screen_awake=$(echo "$screen_line" | awk '{print $2}')
+    bat_saver=$(echo "$bat_saver_line" | awk '{print $2}')
+    [ -z "$bat_saver" ] && bat_saver=$(settings get global low_power 2>/dev/null || echo 0)
 
-    # Handle screen off
-    if [ "$screen_awake" = "0" ]; then
-        # If currently in game, revert to battery/balanced temporarily
-        if [ -f "$STATE_FILE" ]; then
-            curr_state=$(cat "$STATE_FILE" 2>/dev/null)
-            if [ "$curr_state" = "game" ]; then
-                log "Screen turned off during game, setting balanced"
-                "$CTRL" profile balanced >/dev/null 2>&1
-                echo "screen_off" > "$STATE_FILE"
+    prev_state="none"
+    [ -f "$STATE_FILE" ] && prev_state=$(cat "$STATE_FILE" 2>/dev/null)
+
+    # 1. ROM Battery Saver Handling (Priority over games/normal)
+    # Mode Battery "HANYA" aktif ketika mode hemat baterai bawaan ROM AOSP aktif!
+    if [ "$bat_saver" = "1" ]; then
+        if [ "$prev_state" != "battery_saver" ]; then
+            last_prof=$("$CTRL" profile get 2>/dev/null || echo "balanced")
+            if [ "$last_prof" != "battery" ]; then
+                echo "$last_prof" > "$CONF_DIR/last_normal_profile"
             fi
+            log "ROM Battery Saver ON -> Applying BATTERY mode"
+            "$CTRL" profile battery >/dev/null 2>&1
+            echo "battery_saver" > "$STATE_FILE"
+        fi
+        return
+    elif [ "$prev_state" = "battery_saver" ]; then
+        # ROM Battery Saver was just turned OFF
+        last_prof="balanced"
+        if [ -f "$CONF_DIR/last_normal_profile" ]; then
+            last_prof=$(cat "$CONF_DIR/last_normal_profile" 2>/dev/null)
+            [ -z "$last_prof" ] && last_prof="balanced"
+        fi
+        log "ROM Battery Saver OFF -> Restoring $last_prof"
+        "$CTRL" profile "$last_prof" >/dev/null 2>&1
+        echo "normal" > "$STATE_FILE"
+    fi
+
+    # 2. Screen Off Handling
+    if [ "$screen_awake" = "0" ]; then
+        if [ "$prev_state" = "game" ]; then
+            log "Screen turned off during game -> Setting balanced"
+            "$CTRL" profile balanced >/dev/null 2>&1
+            echo "screen_off" > "$STATE_FILE"
         fi
         return
     fi
 
-    # Check if current package is a game
+    # 3. Auto Game Detection
+    auto_game=$(get_config_val "AUTO_GAME" "1")
+    [ "$auto_game" = "0" ] && return
+
     is_game=0
     if [ -n "$pkg" ] && [ -f "$GAMELIST" ]; then
         if grep -F -x -q "$pkg" "$GAMELIST" 2>/dev/null; then
@@ -88,34 +101,29 @@ handle_event() {
         fi
     fi
 
-    prev_state="none"
-    [ -f "$STATE_FILE" ] && prev_state=$(cat "$STATE_FILE" 2>/dev/null)
-
     if [ "$is_game" -eq 1 ]; then
-        # Active app is a GAME!
+        # Active application is a GAME!
         if [ "$prev_state" != "game" ]; then
-            # Save the current profile as fallback before switching
             last_prof=$("$CTRL" profile get 2>/dev/null || echo "balanced")
-            if [ "$last_prof" != "performance" ] && [ "$last_prof" != "game_lite" ]; then
+            if [ "$last_prof" != "benchmark" ] && [ "$last_prof" != "performance" ] && [ "$last_prof" != "battery" ]; then
                 echo "$last_prof" > "$CONF_DIR/last_normal_profile"
             fi
 
-            # Check if Performance Lite toggle is enabled
             perf_lite=$(get_config_val "PERF_LITE" "1")
 
             if [ "$perf_lite" = "1" ]; then
-                log "Game opened: $pkg -> Applying GAME LITE (585MHz GPU cap, DDR RAM safe)"
-                "$CTRL" profile game_lite >/dev/null 2>&1
-            else
-                log "Game opened: $pkg -> Applying PERFORMANCE (692MHz GPU uncapped)"
+                log "Game opened: $pkg -> Applying PERFORMANCE mode (Dynamic scaling, 585MHz GPU cap)"
                 "$CTRL" profile performance >/dev/null 2>&1
+            else
+                log "Game opened: $pkg -> Applying BENCHMARK mode (100% full hardware potential)"
+                "$CTRL" profile benchmark >/dev/null 2>&1
             fi
 
             echo "game" > "$STATE_FILE"
             echo "$pkg" > "$CONF_DIR/active_game"
         fi
     else
-        # Active app is NOT a game
+        # Active application is NOT a game
         if [ "$prev_state" = "game" ] || [ "$prev_state" = "screen_off" ]; then
             last_prof="balanced"
             if [ -f "$CONF_DIR/last_normal_profile" ]; then
@@ -123,7 +131,7 @@ handle_event() {
                 [ -z "$last_prof" ] && last_prof="balanced"
             fi
 
-            log "Exited game: $pkg foreground -> Restoring $last_prof"
+            log "Exited game ($pkg in foreground) -> Restoring $last_prof"
             "$CTRL" profile "$last_prof" >/dev/null 2>&1
             echo "normal" > "$STATE_FILE"
             rm -f "$CONF_DIR/active_game"
@@ -138,9 +146,8 @@ start_daemon() {
     rm -f "$LOCK_FILE"
     echo "normal" > "$STATE_FILE"
 
-    log "Starting E404 Game Controller Daemon..."
+    log "Starting E404 Controller Daemon..."
 
-    # 1. Start system_monitor via app_process
     APK="$MODDIR/bin/system_monitor.apk"
     if [ ! -f "$APK" ]; then
         log "ERROR: system_monitor.apk not found at $APK"
@@ -153,16 +160,12 @@ start_daemon() {
 
     sleep 1
 
-    # 2. Run event monitor loop via inotifyd if available, else lightweight sleep
     if [ -x "$BUSYBOX" ]; then
-        # Launch inotifyd watcher in background with absolute binary path
         DAEMON_BIN="$MODDIR/bin/e404-daemon"
-        nohup "$BUSYBOX" inotifyd "$DAEMON_BIN" "$SYS_OUT:w" >/dev/null 2>&1 &
+        nohup "$BUSYBOX" inotifyd "$DAEMON_BIN" "$SYS_OUT:cw" >/dev/null 2>&1 &
         inotify_pid=$!
         echo "$inotify_pid" > "$CONF_DIR/inotifyd.pid"
         log "Watcher started with inotifyd (PID: $inotify_pid, 0% CPU)"
-    else
-        log "Warning: busybox inotifyd not available, falling back to polling"
     fi
 }
 
@@ -176,7 +179,7 @@ stop_daemon() {
     killall -9 inotifyd 2>/dev/null || true
     rm -f "$LOCK_FILE"
     echo "stopped" > "$STATE_FILE"
-    log "E404 Game Controller Daemon stopped."
+    log "E404 Controller Daemon stopped."
 }
 
 status_daemon() {

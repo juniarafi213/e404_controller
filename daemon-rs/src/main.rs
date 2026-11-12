@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::fs::{self, File};
-use std::io::{BufRead, BufReader, Read};
-use std::os::unix::fs::PermissionsExt;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Child, Command};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -97,13 +96,96 @@ fn start_sysmon_process(cfg: &DaemonConfig) -> Option<Child> {
         .ok()
 }
 
+fn process_sysmon_event(
+    cfg: &DaemonConfig,
+    in_game: &mut bool,
+    in_battery_saver: &mut bool,
+    last_pkg: &mut String,
+    last_normal_prof: &mut String,
+) {
+    let content = match fs::read_to_string(&cfg.sys_out) {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    let mut current_pkg = String::new();
+    let mut screen_awake = true;
+    let mut bat_saver = false;
+
+    for line in content.lines() {
+        if let Some(rest) = line.strip_prefix("focused_app ") {
+            if let Some(p) = rest.split_whitespace().next() {
+                current_pkg = p.to_string();
+            }
+        } else if let Some(rest) = line.strip_prefix("screen_awake ") {
+            screen_awake = rest.trim() != "0";
+        } else if let Some(rest) = line.strip_prefix("battery_saver ") {
+            bat_saver = rest.trim() == "1";
+        }
+    }
+
+    // 1. ROM Battery Saver has highest priority
+    if bat_saver {
+        if !*in_battery_saver {
+            println!("[e404-daemon] ROM Battery Saver turned ON -> Applying BATTERY mode");
+            cfg.run_ctrl(&["profile", "battery"]);
+            *in_battery_saver = true;
+            *in_game = false;
+        }
+        return;
+    } else if *in_battery_saver {
+        println!("[e404-daemon] ROM Battery Saver turned OFF -> Restoring {}", last_normal_prof);
+        cfg.run_ctrl(&["profile", last_normal_prof]);
+        *in_battery_saver = false;
+    }
+
+    // 2. Screen state
+    if !screen_awake {
+        if *in_game {
+            println!("[e404-daemon] Screen off during game -> Setting balanced");
+            cfg.run_ctrl(&["profile", "balanced"]);
+            *in_game = false;
+        }
+        return;
+    }
+
+    if current_pkg.is_empty() || &current_pkg == last_pkg {
+        return;
+    }
+    *last_pkg = current_pkg.clone();
+
+    let is_auto_enabled = cfg.read_conf_val("AUTO_GAME", "1") == "1";
+    if !is_auto_enabled {
+        return;
+    }
+
+    let games = cfg.load_games();
+
+    if games.contains(&current_pkg) {
+        if !*in_game {
+            let perf_lite = cfg.read_conf_val("PERF_LITE", "1") == "1";
+            let target_profile = if perf_lite { "performance" } else { "benchmark" };
+
+            println!("[e404-daemon] Game active: {} -> Setting {}", current_pkg, target_profile);
+            cfg.run_ctrl(&["profile", target_profile]);
+            let _ = fs::write(format!("{}/active_game", cfg.conf_dir), &current_pkg);
+            *in_game = true;
+        }
+    } else if *in_game {
+        println!("[e404-daemon] Exited game: {} foreground -> Restoring {}", current_pkg, last_normal_prof);
+        cfg.run_ctrl(&["profile", last_normal_prof]);
+        let _ = fs::remove_file(format!("{}/active_game", cfg.conf_dir));
+        *in_game = false;
+    }
+}
+
 fn main() {
     let cfg = DaemonConfig::new();
     let term = Arc::new(AtomicBool::new(false));
 
     signal_hook_init(term.clone());
 
-    println!("[e404-daemon] Initializing event-driven Rust daemon...");
+    println!("[e404-daemon] Initializing event-driven Rust daemon (v1.2.0)...");
     let _ = fs::create_dir_all(&cfg.conf_dir);
 
     // Spawn Android system_monitor
@@ -114,6 +196,7 @@ fn main() {
     println!("[e404-daemon] Loaded {} game package signatures", games.len());
 
     let mut in_game = false;
+    let mut in_battery_saver = false;
     let mut last_pkg = String::new();
     let mut last_normal_prof = "balanced".to_string();
 
@@ -122,7 +205,7 @@ fn main() {
         let inotify_fd = libc::inotify_init1(libc::IN_CLOEXEC);
         if inotify_fd < 0 {
             eprintln!("[e404-daemon] Failed to initialize inotify, fallback to polling");
-            run_poll_fallback(&cfg, &games, term);
+            run_poll_fallback(&cfg, term);
             return;
         }
 
@@ -137,7 +220,7 @@ fn main() {
         if wd < 0 {
             eprintln!("[e404-daemon] Failed to watch sys_out, fallback to polling");
             libc::close(inotify_fd);
-            run_poll_fallback(&cfg, &games, term);
+            run_poll_fallback(&cfg, term);
             return;
         }
 
@@ -150,56 +233,7 @@ fn main() {
                 continue;
             }
 
-            // Process update
-            if let Ok(content) = fs::read_to_string(&cfg.sys_out) {
-                let mut current_pkg = String::new();
-                let mut screen_awake = true;
-
-                for line in content.lines() {
-                    if let Some(rest) = line.strip_prefix("focused_app ") {
-                        if let Some(p) = rest.split_whitespace().next() {
-                            current_pkg = p.to_string();
-                        }
-                    } else if let Some(rest) = line.strip_prefix("screen_awake ") {
-                        screen_awake = rest.trim() != "0";
-                    }
-                }
-
-                if !screen_awake {
-                    if in_game {
-                        cfg.run_ctrl(&["profile", "balanced"]);
-                        in_game = false;
-                    }
-                    continue;
-                }
-
-                if current_pkg.is_empty() || current_pkg == last_pkg {
-                    continue;
-                }
-                last_pkg = current_pkg.clone();
-
-                let is_auto_enabled = cfg.read_conf_val("AUTO_GAME", "1") == "1";
-                if !is_auto_enabled {
-                    continue;
-                }
-
-                if games.contains(&current_pkg) {
-                    if !in_game {
-                        let perf_lite = cfg.read_conf_val("PERF_LITE", "1") == "1";
-                        let target_profile = if perf_lite { "game_lite" } else { "performance" };
-
-                        println!("[e404-daemon] Game active: {} -> Setting {}", current_pkg, target_profile);
-                        cfg.run_ctrl(&["profile", target_profile]);
-                        let _ = fs::write(format!("{}/active_game", cfg.conf_dir), &current_pkg);
-                        in_game = true;
-                    }
-                } else if in_game {
-                    println!("[e404-daemon] Exited game: {} foreground -> Restoring {}", current_pkg, last_normal_prof);
-                    cfg.run_ctrl(&["profile", &last_normal_prof]);
-                    let _ = fs::remove_file(format!("{}/active_game", cfg.conf_dir));
-                    in_game = false;
-                }
-            }
+            process_sysmon_event(&cfg, &mut in_game, &mut in_battery_saver, &mut last_pkg, &mut last_normal_prof);
         }
 
         libc::close(inotify_fd);
@@ -211,53 +245,25 @@ fn main() {
     println!("[e404-daemon] Daemon stopped cleanly.");
 }
 
-fn run_poll_fallback(cfg: &DaemonConfig, games: &HashSet<String>, term: Arc<AtomicBool>) {
+fn run_poll_fallback(cfg: &DaemonConfig, term: Arc<AtomicBool>) {
     let mut in_game = false;
+    let mut in_battery_saver = false;
     let mut last_pkg = String::new();
+    let mut last_normal_prof = "balanced".to_string();
 
     while !term.load(Ordering::Relaxed) {
         thread::sleep(Duration::from_millis(500));
-        if let Ok(content) = fs::read_to_string(&cfg.sys_out) {
-            let mut current_pkg = String::new();
-            for line in content.lines() {
-                if let Some(rest) = line.strip_prefix("focused_app ") {
-                    if let Some(p) = rest.split_whitespace().next() {
-                        current_pkg = p.to_string();
-                    }
-                }
-            }
-            if current_pkg.is_empty() || current_pkg == last_pkg {
-                continue;
-            }
-            last_pkg = current_pkg.clone();
-
-            if games.contains(&current_pkg) {
-                if !in_game {
-                    let perf_lite = cfg.read_conf_val("PERF_LITE", "1") == "1";
-                    let target = if perf_lite { "game_lite" } else { "performance" };
-                    cfg.run_ctrl(&["profile", target]);
-                    in_game = true;
-                }
-            } else if in_game {
-                cfg.run_ctrl(&["profile", "balanced"]);
-                in_game = false;
-            }
-        }
+        process_sysmon_event(&cfg, &mut in_game, &mut in_battery_saver, &mut last_pkg, &mut last_normal_prof);
     }
 }
 
 fn signal_hook_init(term: Arc<AtomicBool>) {
     unsafe {
-        let handler = move || {
-            term.store(true, Ordering::Relaxed);
-        };
-        // Simple SIGINT/SIGTERM setup
         libc::signal(libc::SIGINT, sig_handler as usize);
         libc::signal(libc::SIGTERM, sig_handler as usize);
     }
 }
 
 extern "C" fn sig_handler(_: libc::c_int) {
-    // Process exit gracefully
     std::process::exit(0);
 }

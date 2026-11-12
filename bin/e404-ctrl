@@ -26,6 +26,11 @@ write_node() {
     fi
 }
 
+show_notify() {
+    msg="$1"
+    cmd notification post -S bigtext -t "E404 Controller" "e404_mode" "$msg" >/dev/null 2>&1 &
+}
+
 get_conf() {
     key="$1"
     default="$2"
@@ -55,41 +60,50 @@ update_module_prop() {
     cat <<EOF > "$prop"
 id=e404_controller
 name=E404 Controller (SM8150)
-version=v1.1.0
-versionCode=10100
+version=v1.2.0
+versionCode=10200
 author=E404
-description=Unified hardware, BORE 7.0.1, Konabess GPU UV, UFS, bypass charging, auto-game daemon & Lyb touch for Poco X3 Pro. $tag
+description=Unified SM8150 controller with BORE 7.0.1, uclamp tuning, auto-game daemon & Material 3 WebUI. $tag
 EOF
 }
 
-apply_performance() {
-    # Thermal unconstrain for gaming
+apply_benchmark() {
+    # Thermal: Gaming unconstrained
     write_node 10 /sys/devices/virtual/thermal/thermal_message/sconfig
     write_node 0 /sys/devices/virtual/thermal/thermal_message/balance_mode
 
-    # CPU Frequencies & Schedutil (Low latency)
+    # CPU Frequencies & Schedutil (100% full potential unleashed)
     write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
-    write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
-    write_node 1000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+    write_node 1171200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
+    write_node 500 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+    write_node 8 /sys/devices/system/cpu/cpufreq/policy0/schedutil/response_time_ms
 
     write_node 2419200 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
-    write_node 1056000 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
-    write_node 1000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+    write_node 1382400 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
+    write_node 500 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+    write_node 20 /sys/devices/system/cpu/cpufreq/policy4/schedutil/response_time_ms
 
     write_node 2956800 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
-    write_node 1190400 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
-    write_node 1000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+    write_node 1516800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
+    write_node 500 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+    write_node 30 /sys/devices/system/cpu/cpufreq/policy7/schedutil/response_time_ms
+
+    # uclamp tuning (benchmark)
+    write_node 50.00 /dev/cpuctl/top-app/cpu.uclamp.min
+    write_node max /dev/cpuctl/top-app/cpu.uclamp.max
+    write_node 1 /dev/cpuctl/top-app/cpu.uclamp.latency_sensitive
+    write_node 20.00 /dev/cpuctl/background/cpu.uclamp.max
 
     # GPU: Uncapped 692 MHz OPP0, floor OPP4 (427 MHz)
     write_node 0 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
     write_node 4 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
-    write_node 64 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 80 /sys/class/kgsl/kgsl-3d0/idle_timer
     write_node 1 /sys/class/kgsl/kgsl-3d0/bus_split
 
     # BORE 7.0.1 Scheduler
     write_node 1 /proc/sys/kernel/sched_bore
     write_node 2 /proc/sys/kernel/sched_burst_protect_slice_lv
-    write_node 1280 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1200 /proc/sys/kernel/sched_burst_penalty_scale
     write_node 1 /proc/sys/kernel/sched_burst_smoothness
 
     # UFS Storage 3.1
@@ -107,32 +121,42 @@ apply_performance() {
     # Lyb Touch
     write_node 1 /sys/kernel/e404/lyb/touch_game_mode
 
-    echo "performance" > "$PROFILE_FILE"
-    update_module_prop "performance"
+    echo "benchmark" > "$PROFILE_FILE"
+    update_module_prop "benchmark"
+    show_notify "🚀 Mode BENCHMARK Aktif (100% Potensi Maksimal)"
 }
 
-apply_game_lite() {
+apply_performance() {
     # Thermal: Gaming profile
     write_node 10 /sys/devices/virtual/thermal/thermal_message/sconfig
     write_node 0 /sys/devices/virtual/thermal/thermal_message/balance_mode
 
-    # CPU: Silver stock, Gold capped to 2.15 GHz, Prime capped to 2.45 GHz (Optimal efficiency)
+    # CPU: Dynamic Scaling - Scales when load demands, drops when smooth!
     write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
     write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
     write_node 2000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+    write_node 13 /sys/devices/system/cpu/cpufreq/policy0/schedutil/response_time_ms
 
     write_node 2150400 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
     write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
     write_node 2000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+    write_node 40 /sys/devices/system/cpu/cpufreq/policy4/schedutil/response_time_ms
 
     write_node 2457600 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
     write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
     write_node 2000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+    write_node 60 /sys/devices/system/cpu/cpufreq/policy7/schedutil/response_time_ms
 
-    # GPU: Cap to 585 MHz (OPP2) to prevent severe 692MHz DDR2133 battery drain! Floor OPP6 (257 MHz)
+    # uclamp dynamic scaling (eliminates micro-stutters without locking at 100%)
+    write_node 15.00 /dev/cpuctl/top-app/cpu.uclamp.min
+    write_node max /dev/cpuctl/top-app/cpu.uclamp.max
+    write_node 1 /dev/cpuctl/top-app/cpu.uclamp.latency_sensitive
+    write_node 25.00 /dev/cpuctl/background/cpu.uclamp.max
+
+    # GPU: Cap 585 MHz (OPP2) to prevent severe 692MHz DDR2133 battery drain, drops to 150MHz (OPP7) when light!
     write_node 2 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
-    write_node 6 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
-    write_node 48 /sys/class/kgsl/kgsl-3d0/idle_timer
+    write_node 7 /sys/class/kgsl/kgsl-3d0/min_pwrlevel
+    write_node 40 /sys/class/kgsl/kgsl-3d0/idle_timer
     write_node 1 /sys/class/kgsl/kgsl-3d0/bus_split
 
     # BORE 7.0.1 Scheduler
@@ -156,8 +180,9 @@ apply_game_lite() {
     # Lyb Touch
     write_node 1 /sys/kernel/e404/lyb/touch_game_mode
 
-    echo "game_lite" > "$PROFILE_FILE"
-    update_module_prop "game_lite"
+    echo "performance" > "$PROFILE_FILE"
+    update_module_prop "performance"
+    show_notify "🎮 Mode PERFORMANCE Aktif (Dynamic Scaling Cerdas)"
 }
 
 apply_balanced() {
@@ -169,14 +194,23 @@ apply_balanced() {
     write_node 1804800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
     write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
     write_node 4000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
+    write_node 13 /sys/devices/system/cpu/cpufreq/policy0/schedutil/response_time_ms
 
     write_node 2419200 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
     write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
     write_node 4000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
+    write_node 61 /sys/devices/system/cpu/cpufreq/policy4/schedutil/response_time_ms
 
     write_node 2956800 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
     write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
     write_node 4000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+    write_node 76 /sys/devices/system/cpu/cpufreq/policy7/schedutil/response_time_ms
+
+    # uclamp stock
+    write_node 0.00 /dev/cpuctl/top-app/cpu.uclamp.min
+    write_node max /dev/cpuctl/top-app/cpu.uclamp.max
+    write_node 0 /dev/cpuctl/top-app/cpu.uclamp.latency_sensitive
+    write_node 30.00 /dev/cpuctl/background/cpu.uclamp.max
 
     # GPU: Cap to 585 MHz (OPP2), full idle to OPP7 (150 MHz)
     write_node 2 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
@@ -207,25 +241,32 @@ apply_balanced() {
 
     echo "balanced" > "$PROFILE_FILE"
     update_module_prop "balanced"
+    show_notify "⚖️ Mode BALANCED Aktif"
 }
 
 apply_battery() {
-    # Thermal: Power saving
+    # Thermal: ROM Power saving
     write_node 1 /sys/devices/virtual/thermal/thermal_message/sconfig
     write_node 1 /sys/devices/virtual/thermal/thermal_message/balance_mode
 
-    # CPU: Lower clocks, slow schedutil response
-    write_node 1516800 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
+    # CPU: Sweet-spot minimums (No UI lag, but strictly restrained)
+    write_node 1344000 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
     write_node 883200 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
     write_node 8000 /sys/devices/system/cpu/cpufreq/policy0/schedutil/rate_limit_us
 
-    write_node 1670400 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
+    write_node 1478400 /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
     write_node 825600 /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
     write_node 8000 /sys/devices/system/cpu/cpufreq/policy4/schedutil/rate_limit_us
 
-    write_node 1747200 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
+    write_node 1401600 /sys/devices/system/cpu/cpufreq/policy7/scaling_max_freq
     write_node 844800 /sys/devices/system/cpu/cpufreq/policy7/scaling_min_freq
     write_node 8000 /sys/devices/system/cpu/cpufreq/policy7/schedutil/rate_limit_us
+
+    # uclamp power saving
+    write_node 0.00 /dev/cpuctl/top-app/cpu.uclamp.min
+    write_node 50.00 /dev/cpuctl/top-app/cpu.uclamp.max
+    write_node 0 /dev/cpuctl/top-app/cpu.uclamp.latency_sensitive
+    write_node 15.00 /dev/cpuctl/background/cpu.uclamp.max
 
     # GPU: Cap to 427 MHz (OPP4), full idle OPP7 (150 MHz)
     write_node 4 /sys/class/kgsl/kgsl-3d0/max_pwrlevel
@@ -236,7 +277,7 @@ apply_battery() {
     # BORE 7.0.1 Scheduler
     write_node 1 /proc/sys/kernel/sched_bore
     write_node 0 /proc/sys/kernel/sched_burst_protect_slice_lv
-    write_node 1536 /proc/sys/kernel/sched_burst_penalty_scale
+    write_node 1600 /proc/sys/kernel/sched_burst_penalty_scale
     write_node 1 /proc/sys/kernel/sched_burst_smoothness
 
     # UFS Storage 3.1
@@ -256,6 +297,7 @@ apply_battery() {
 
     echo "battery" > "$PROFILE_FILE"
     update_module_prop "battery"
+    show_notify "🔋 Mode BATTERY Aktif (Hemat Daya ROM)"
 }
 
 set_bypass() {
@@ -263,11 +305,13 @@ set_bypass() {
     if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
         write_node 1 /sys/class/power_supply/battery/input_suspend
         set_conf "BYPASS" "1"
-        echo "Bypass charging ENABLED (battery charging stopped, powered directly)"
+        echo "Bypass charging ENABLED"
+        show_notify "⚡ Bypass Charging AKTIF"
     else
         write_node 0 /sys/class/power_supply/battery/input_suspend
         set_conf "BYPASS" "0"
-        echo "Bypass charging DISABLED (normal charging restored)"
+        echo "Bypass charging DISABLED"
+        show_notify "⚡ Bypass Charging NONAKTIF"
     fi
 }
 
@@ -301,10 +345,10 @@ set_perflite() {
     state="$1"
     if [ "$state" = "1" ] || [ "$state" = "on" ] || [ "$state" = "enable" ]; then
         set_conf "PERF_LITE" "1"
-        echo "Performance Lite mode ENABLED (Forces Game Lite on all games)"
+        echo "Performance Lite mode ENABLED"
     else
         set_conf "PERF_LITE" "0"
-        echo "Performance Lite mode DISABLED (Full Performance on games)"
+        echo "Performance Lite mode DISABLED"
     fi
 }
 
@@ -319,8 +363,29 @@ set_autogame() {
     fi
 }
 
+add_game_package() {
+    pkg="$1"
+    [ -z "$pkg" ] && return
+    mkdir -p "$CONF_DIR"
+    touch "$GAMELIST"
+    if ! grep -F -x -q "$pkg" "$GAMELIST"; then
+        echo "$pkg" >> "$GAMELIST"
+        echo "Added $pkg to gamelist"
+    else
+        echo "$pkg already exists in gamelist"
+    fi
+}
+
+remove_game_package() {
+    pkg="$1"
+    [ -z "$pkg" ] && return
+    if [ -f "$GAMELIST" ]; then
+        grep -F -v -x "$pkg" "$GAMELIST" > "$GAMELIST.tmp" && mv "$GAMELIST.tmp" "$GAMELIST"
+        echo "Removed $pkg from gamelist"
+    fi
+}
+
 get_status_json() {
-    # Current profile
     if [ -f "$PROFILE_FILE" ]; then
         cur_prof=$(cat "$PROFILE_FILE" 2>/dev/null | tr -d '[:space:]')
     else
@@ -364,6 +429,10 @@ get_status_json() {
     bore_protect=$(cat /proc/sys/kernel/sched_burst_protect_slice_lv 2>/dev/null || echo 0)
     ufs_ra=$(cat /sys/block/sda/queue/read_ahead_kb 2>/dev/null || echo 128)
 
+    # uclamp status
+    uclamp_top_min=$(cat /dev/cpuctl/top-app/cpu.uclamp.min 2>/dev/null || echo "0.00")
+    uclamp_bg_max=$(cat /dev/cpuctl/background/cpu.uclamp.max 2>/dev/null || echo "30.00")
+
     # Daemon & Auto-Game Toggles
     perf_lite=$(get_conf "PERF_LITE" "1")
     auto_game=$(get_conf "AUTO_GAME" "1")
@@ -371,6 +440,12 @@ get_status_json() {
     pgrep -f E404SysMon >/dev/null 2>&1 && daemon_run=1
     active_game=""
     [ -f "$CONF_DIR/active_game" ] && active_game=$(cat "$CONF_DIR/active_game" 2>/dev/null)
+    game_count=0
+    [ -f "$GAMELIST" ] && game_count=$(grep -c -v '^[[:space:]]*$' "$GAMELIST" 2>/dev/null || echo 0)
+
+    # ROM Low Power Status
+    rom_battery_saver=$(settings get global low_power 2>/dev/null || echo 0)
+    [ "$rom_battery_saver" != "1" ] && rom_battery_saver=0
 
     # Format JSON
     cat <<EOF
@@ -382,6 +457,8 @@ get_status_json() {
   "bore_version": "7.0.1",
   "bore_enabled": $bore_status,
   "bore_protect_slice": $bore_protect,
+  "uclamp_top_min": "$uclamp_top_min",
+  "uclamp_bg_max": "$uclamp_bg_max",
   "cpu": {
     "silver_cur": $c0_cur,
     "silver_max": $c0_max,
@@ -403,14 +480,16 @@ get_status_json() {
     "temp": $bat_temp,
     "status": "$bat_status",
     "bypass_charging": $input_suspend,
-    "force_fast_charge": $fast_charge
+    "force_fast_charge": $fast_charge,
+    "rom_battery_saver": $rom_battery_saver
   },
   "lyb_touch": $lyb_touch,
   "ufs_read_ahead_kb": $ufs_ra,
   "auto_game": $auto_game,
   "perf_lite": $perf_lite,
   "daemon_running": $daemon_run,
-  "active_game": "$active_game"
+  "active_game": "$active_game",
+  "game_count": $game_count
 }
 EOF
 }
@@ -418,13 +497,18 @@ EOF
 case "$1" in
     profile)
         case "$2" in
+            benchmark)
+                apply_benchmark
+                echo "Profile set: BENCHMARK"
+                ;;
             performance)
                 apply_performance
                 echo "Profile set: PERFORMANCE"
                 ;;
             game_lite)
-                apply_game_lite
-                echo "Profile set: GAME LITE"
+                # Backward compatibility alias
+                apply_performance
+                echo "Profile set: PERFORMANCE"
                 ;;
             balanced)
                 apply_balanced
@@ -442,8 +526,31 @@ case "$1" in
                 fi
                 ;;
             *)
-                echo "Usage: e404-ctrl profile [performance|game_lite|balanced|battery|get]"
+                echo "Usage: e404-ctrl profile [benchmark|performance|balanced|battery|get]"
                 exit 1
+                ;;
+        esac
+        ;;
+    game)
+        case "$2" in
+            add)
+                add_game_package "$3"
+                ;;
+            remove|del)
+                remove_game_package "$3"
+                ;;
+            list)
+                [ -f "$GAMELIST" ] && cat "$GAMELIST"
+                ;;
+            has)
+                if [ -f "$GAMELIST" ] && grep -F -x -q "$3" "$GAMELIST"; then
+                    echo "1"
+                else
+                    echo "0"
+                fi
+                ;;
+            *)
+                echo "Usage: e404-ctrl game [add|remove|list|has] <package>"
                 ;;
         esac
         ;;
@@ -517,6 +624,9 @@ case "$1" in
             *) echo "Usage: e404-ctrl lyb [on|off|toggle|status]" ; exit 1 ;;
         esac
         ;;
+    toast|notify)
+        show_notify "$2"
+        ;;
     status)
         get_status_json
         ;;
@@ -529,20 +639,22 @@ case "$1" in
         fi
         ;;
     version|-v|--version)
-        echo "E404 Controller v1.1.0 (SM8150 / Poco X3 Pro)"
+        echo "E404 Controller v1.2.0 (SM8150 / Poco X3 Pro)"
         ;;
     *)
         echo "E404 Controller CLI"
         echo "Usage: e404-ctrl <command> [args]"
         echo ""
         echo "Commands:"
-        echo "  profile <performance|game_lite|balanced|battery|get>"
-        echo "  perflite <on|off|toggle|status>  (Force Game Lite for games)"
-        echo "  autogame <on|off|toggle|status>  (Auto game profile detector)"
+        echo "  profile <benchmark|performance|balanced|battery|get>"
+        echo "  game <add|remove|list|has> [package]"
+        echo "  perflite <on|off|toggle|status>"
+        echo "  autogame <on|off|toggle|status>"
         echo "  daemon <start|stop|restart|status>"
         echo "  bypass <on|off|toggle|status>"
         echo "  fastcharge <on|off|toggle|status>"
         echo "  lyb <on|off|toggle|status>"
+        echo "  notify <message>"
         echo "  status       (Print JSON system state for WebUI)"
         echo "  apply        (Reapply active profile and settings)"
         echo "  version      (Print version)"

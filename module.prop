@@ -1,6 +1,6 @@
 id=e404_controller
 name=E404 Controller (SM8150)
-version=v1.0.0
-versionCode=10000
+version=v1.2.0
+versionCode=10200
 author=E404
-description=Unified hardware, BORE 7.0.1, Konabess GPU UV, UFS, bypass charging & Lyb touch controller for Poco X3 Pro (SM8150). [Active: BALANCED]
+description=Unified SM8150 controller with BORE 7.0.1, uclamp tuning, dynamic profiles & M3 WebUI. [Active: BALANCED]
